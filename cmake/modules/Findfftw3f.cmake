@@ -1,0 +1,29 @@
+INCLUDE(FindPkgConfig)
+if(NOT FFTW3F_FOUND)
+  #pkg_check_modules(FFTW3F_PKG fftw3f)
+
+  find_path(FFTW3F_INCLUDE_DIRS
+    NAMES fftw3.h
+    NO_DEFAULT_PATH
+    PATHS ${FFTW3F_PKG_INCLUDE_DIRS}
+          ${CMAKE_INSTALL_PREFIX}/include
+  )
+
+  find_library(FFTW3F_STATIC_LIBRARIES
+    NAMES libfftw3f.a
+    NO_DEFAULT_PATH
+    PATHS ${FFTW3F_PKG_LIBRARY_DIRS}
+          ${CMAKE_INSTALL_PREFIX}/lib
+  )
+
+if(FFTW3F_INCLUDE_DIRS AND FFTW3F_STATIC_LIBRARIES)
+  set(FFTW3F_FOUND TRUE CACHE INTERNAL "fftw3f found")
+  message(STATUS "Found fftw3f: ${FFTW3F_INCLUDE_DIRS}, ${FFTW3F_STATIC_LIBRARIES}")
+else()
+  set(FFTW3F_FOUND FALSE CACHE INTERNAL "fftw3f found")
+  message(STATUS "fftw3f not found.")
+endif()
+
+mark_as_advanced(FFTW3F_STATIC_LIBRARIES FFTW3F_INCLUDE_DIRS)
+
+endif(NOT FFTW3F_FOUND)

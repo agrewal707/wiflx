@@ -1,0 +1,156 @@
+B-POLL:
+
+ofdmflexframegen:
+    num subcarriers     :   64
+      * NULL            :   14
+      * pilot           :   6
+      * data            :   44
+    cyclic prefix len   :   4
+    taper len           :   2
+    properties:
+      * mod scheme      :   quadrature amplitude-shift keying (16)
+      * fec (inner)     :   none
+      * fec (outer)     :   none
+      * CRC scheme      :   CRC (32-bit)
+    frame assembled     :   yes
+    payload:
+      * decoded bytes   :   9
+      * encoded bytes   :   13
+      * modulated syms  :   26
+    total OFDM symbols  :   8
+      * S0 symbols      :   2 @ 68
+      * S1 symbols      :   1 @ 68
+      * header symbols  :   4 @ 68
+      * payload symbols :   1 @ 68
+    spectral efficiency :   0.1324 b/s/Hz
+
+
+U-DATA (1500 bytes):
+
+19:23:21.928285 mac.cpp:fsm_send_u_data TX DATA -- rid:1, seq:258, size: 1514
+19:23:21.928286 mac.cpp:fsm_send_u_data TX POLL -- rid:1, seq:547
+ofdmflexframegen:
+    num subcarriers     :   64
+      * NULL            :   14
+      * pilot           :   6
+      * data            :   44
+    cyclic prefix len   :   4
+    taper len           :   2
+    properties:
+      * mod scheme      :   quadrature amplitude-shift keying (16)
+      * fec (inner)     :   none
+      * fec (outer)     :   none
+      * CRC scheme      :   CRC (32-bit)
+    frame assembled     :   yes
+    payload:
+      * decoded bytes   :   1530
+      * encoded bytes   :   1534
+      * modulated syms  :   3068
+    total OFDM symbols  :   77
+      * S0 symbols      :   2 @ 68
+      * S1 symbols      :   1 @ 68
+      * header symbols  :   4 @ 68
+      * payload symbols :   70 @ 68
+    spectral efficiency :   2.3377 b/s/Hz
+
+
+
+x86 Host, 1000Khz, AP->RM:
+CALCULATED TX FRAME TIME = 5.82ms
+MEASURED SEND TIME = 7.732ms
+MEASURED RECV TIME = 7.124ms
+MEASURED RTT= 397216-382360 = 14.856ms
+
+19:31:29.382360 mac.cpp:operator() TR: ev: N5wiflx2ap7ev_sendE, src: st_idle, dst: st_sending_u_data
+19:31:29.382360 mac.cpp:fsm_send_u_data TX ACK -- rid:1, seq:4304
+19:31:29.382365 mac.cpp:fsm_send_u_data RM 1 DEFICIT 210
+19:31:29.382365 mac.cpp:fsm_send_u_data TX DATA -- rid:1, seq:5579, size: 1514
+19:31:29.382366 mac.cpp:fsm_send_u_data TX POLL -- rid:1, seq:22219
+19:31:29.382407 codel.cpp:enqueue Number packets 4, bytes 6056
+19:31:29.382407 fq_codel.cpp:enqueue tctx 0 flow 911 deficit 0 size 6056 total 4
+19:31:29.382414 codel.cpp:enqueue Number packets 5, bytes 7570
+19:31:29.382414 fq_codel.cpp:enqueue tctx 0 flow 911 deficit 0 size 7570 total 5
+19:31:29.390092 mac.cpp:operator() TR: ev: N5wiflx2ap7ev_sentE, src: st_sending_u_data, dst: st_d_ack_wait
+19:31:29.397216 ofdm.cpp:on_recv evm: -31.030560 rssi: -15.749965 cfo: -0.000825 valid: 1
+19:31:29.397235 mac.cpp:process_ack RX ACK -- rid:1, seq:5579
+19:31:29.397237 mac.cpp:process_data BSR: 0
+19:31:29.397237 mac.cpp:process_data RX DATA -- rid:1, seq:0, size:0
+19:31:29.397239 mac.cpp:operator() TR: ev: N5wiflx2ap7ev_rcvdE, src: st_d_ack_wait, dst: st_idle
+19:31:29.397241 mac_sched.cpp:get_next_remote OLD rm 1 with positive rm deficit 179
+19:31:29.397242 fq_codel.cpp:dequeue OLD flow 911 with positive flow deficit 1514
+19:31:29.397243 codel.cpp:dequeue Number packets 4, bytes 6056
+19:31:29.397244 codel.cpp:OkToDrop seq:5580, sojourn time:46ms
+19:31:29.397244 codel.cpp:dequeue Not in dropping state; decide if we have to enter the state and drop the first packet
+19:31:29.397244 codel.cpp:dequeue bytes_dropped 0, packets dropped 0
+19:31:29.397245 fq_codel.cpp:dequeue tid 0 flow 911 deficit 0 bytes 6056 total bytes 6056 total packets 4
+19:31:29.397250 mac.cpp:operator() TR: ev: N5wiflx2ap7ev_sendE, src: st_idle, dst: st_sending_u_data
+
+
+RTT = 691814 - 674975 = 16.839ms
+SEND TIME = 682235 - 674975 = 7.260ms
+RCV TIME = 691814 - 682235 = 9.579ms
+19:31:29.674975 mac.cpp:operator() TR: ev: N5wiflx2ap7ev_sendE, src: st_idle, dst: st_sending_u_data
+19:31:29.674976 mac.cpp:fsm_send_u_data TX ACK -- rid:1, seq:4306
+19:31:29.674980 mac.cpp:fsm_send_u_data RM 1 DEFICIT 1087
+19:31:29.674980 mac.cpp:fsm_send_u_data TX DATA -- rid:1, seq:5586, size: 1514
+19:31:29.674981 mac.cpp:fsm_send_u_data TX POLL -- rid:1, seq:22229
+19:31:29.682235 mac.cpp:operator() TR: ev: N5wiflx2ap7ev_sentE, src: st_sending_u_data, dst: st_d_ack_wait
+19:31:29.691814 ofdm.cpp:on_recv evm: -34.126678 rssi: -19.790247 cfo: -0.000962 valid: 1
+19:31:29.691831 mac.cpp:process_ack RX ACK -- rid:1, seq:5586
+19:31:29.691833 mac.cpp:process_data BSR: 1
+19:31:29.691833 mac.cpp:process_data RX DATA -- rid:1, seq:4307, size:78
+19:31:29.691843 mac.cpp:operator() TR: ev: N5wiflx2ap7ev_rcvdE, src: st_d_ack_wait, dst: st_idle
+19:31:29.691845 mac_sched.cpp:get_next_remote OLD rm 1 with positive rm deficit 971
+19:31:29.691846 fq_codel.cpp:dequeue OLD flow 911 with positive flow deficit 1514
+19:31:29.691847 codel.cpp:dequeue Number packets 2, bytes 3028
+19:31:29.691847 codel.cpp:OkToDrop seq:5587, sojourn time:91ms
+19:31:29.691848 codel.cpp:dequeue Not in dropping state; decide if we have to enter the state and drop the first packet
+19:31:29.691848 codel.cpp:dequeue bytes_dropped 0, packets dropped 0
+19:31:29.691848 fq_codel.cpp:dequeue tid 0 flow 911 deficit 0 bytes 3028 total bytes 3028 total packets 2
+19:31:29.691852 mac.cpp:operator() TR: ev: N5wiflx2ap7ev_sendE, src: st_idle, dst: st_sending_u_data
+
+
+
+03/15/2021:
+
+x86 Host:
+
+1. 1000Khz, OFDM 64/4/2, 16QAM:
+AP->RM:
+[  3]  0.0-30.2 sec  2036 KBytes   552 Kbits/sec
+RM->AP:
+[  4]  0.0-139.9 sec  9067 KBytes   531 Kbits/sec
+
+2. 500Khz, OFDM 64/4/2, 16QAM:
+AP->RM:
+[  4]  0.0-31.4 sec  1975 KBytes   515 Kbits/sec
+
+RM->AP:
+[  4]  0.0-31.1 sec  1818 KBytes   479 Kbits/sec
+
+3. 75Khz, OFDM 64/4/2, 16QAM:
+AP->RM:
+[  4]  0.0-35.4 sec   481 KBytes   111 Kbits/sec
+RM->AP:
+[  4]  0.0-36.8 sec   450 KBytes   100 Kbits/sec
+
+Observations:
+1. Had to remote PlutoSDRs when moving from 1000Khz to 500khz tests.
+
+On PlutoSDR:
+
+1. 1000Khz, OFDM 64/4/2, 16QAM:
+Does not work, RX overflows
+
+2. 500Khz, OFDM 64/4/2, 16QAM:
+AP->RM:
+[  4]  0.0-31.4 sec  1117 KBytes   292 Kbits/sec
+
+RM->AP:
+[  4]  0.0-11.4 sec   399 KBytes   288 Kbits/sec
+
+3. 75khz,  OFDM 64/4/2, 16QAM:
+AP->RM:
+[  4]  0.0-35.0 sec   419 KBytes  97.9 Kbits/sec
+RM->AP:
+[  4]  0.0-35.7 sec   372 KBytes  85.4 Kbits/sec

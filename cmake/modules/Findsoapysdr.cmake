@@ -1,0 +1,29 @@
+INCLUDE(FindPkgConfig)
+if(NOT SOAPYSDR_FOUND)
+  #pkg_check_modules(SOAPYSDR_PKG soapysdr)
+
+  find_path(SOAPYSDR_INCLUDE_DIRS
+    NAMES SoapySDR/Device.hpp
+    NO_DEFAULT_PATH
+    PATHS ${SOAPYSDR_PKG_INCLUDE_DIRS}
+          ${CMAKE_INSTALL_PREFIX}/include
+  )
+
+  find_library(SOAPYSDR_LIBRARIES
+    NAMES libSoapySDR.so
+    NO_DEFAULT_PATH
+    PATHS ${SOAPYSDR_PKG_LIBRARY_DIRS}
+          ${CMAKE_INSTALL_PREFIX}/lib
+  )
+
+if(SOAPYSDR_INCLUDE_DIRS AND SOAPYSDR_LIBRARIES)
+  set(SOAPYSDR_FOUND TRUE CACHE INTERNAL "soapysdr found")
+  message(STATUS "Found soapysdr: ${SOAPYSDR_INCLUDE_DIRS}, ${SOAPYSDR_LIBRARIES}")
+else()
+  set(SOAPYSDR_FOUND FALSE CACHE INTERNAL "soapysdr found")
+  message(STATUS "soapysdr not found.")
+endif()
+
+mark_as_advanced(SOAPYSDR_LIBRARIES SOAPYSDR_INCLUDE_DIRS)
+
+endif(NOT SOAPYSDR_FOUND)

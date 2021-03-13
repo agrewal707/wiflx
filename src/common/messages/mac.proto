@@ -1,0 +1,67 @@
+syntax="proto3";
+
+package wiflx.common.messages.mac;
+option optimize_for = LITE_RUNTIME;
+
+enum constants
+{
+	AP_RID = 0;
+	BROADCAST_RID = 0xFFFF;
+}
+
+enum mcs_ie
+{
+	MCS0 = 0;
+}
+
+//
+// INFORMATION ELEMENTS (IE) included in protocol messages
+//
+enum error_ie
+{
+	ER_NONE = 0;
+	ER_INVALID = 1;
+	ER_INSUFFICIENT_RESOURCES = 2;
+}
+
+//
+// PROTOCOL MESSAGES
+//
+message poll
+{
+	uint32 seqid = 1;
+}
+
+message rach
+{
+	uint32 seqid = 1;
+}
+
+message data
+{
+	uint32 seqid = 1;
+	bytes payload = 2;
+}
+
+message ack
+{
+	uint32 seqid = 1;
+	error_ie error = 2;
+}
+
+message appdu
+{
+	uint32 rid = 1;
+	poll p = 2;
+	repeated data d = 3;
+	repeated ack a = 4;
+}
+
+message rmpdu
+{
+	uint32 rid = 1;
+	rach ra = 2;
+	repeated data d = 3;
+	repeated ack a = 4;
+	uint32 bsr = 5;
+}

@@ -1,0 +1,10 @@
+#ifndef WIFLX_CONFIG_H
+#define WIFLX_CONFIG_H
+
+#define wiflx_VERSION @wiflx_VERSION@
+
+#cmakedefine WIFLX_SIMULATION
+
+#cmakedefine WIFLX_RT_SCHED
+
+#endif

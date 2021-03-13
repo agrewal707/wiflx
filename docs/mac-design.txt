@@ -1,0 +1,75 @@
+
+WiFLX consist of access point (wiflx_ap) and remote/client (wiflx_rm) applications.
+
+Protocol
+----
+
+All downlink and uplink transmissions to/from the remotes are scheduled by the AP.
+
+The AP MAC FSM is implemented using Boost MSM in src/ap/mac.cpp.
+
+The AP MAC client/remote scheduler is implemented in src/ap/mac_sched.cpp.
+
+The Remote MAC FSM is implemented using Boost MSM in src/rm/mac.cpp.
+
+Following summarizes the messages exchanged between AP and Remote(s).
+
+AP-> RM:
+ - Broadcast POLL - If AP has capacity to add a remote to polling list.
+   The broadcast POLL invites remotes to contend for uplink access by sending
+   RA request.
+
+ - Broadcast DATA - if there is downlink broadcast data.
+
+ - Unicast POLL - if the addressed remote is the next one permitted to transmit
+   but there is no downlink data for it or any received packets to acknowledge.
+
+ - Unicast POLL + ACK - if the addressed remote is the next one permitted to transmit
+   and there are previously received packets to acknowledge from this remote.
+
+ - Unicast POLL + DATA - if the addressed remote is the next one permitted to transmit
+   and there is downlink data for it.
+
+ - Unicast POLL + DATA + ACK - if the addressed remote is the next one permitted to transmit,
+   there is downlink data for it and there are previously received packets to acknowledge
+   from this remote.
+
+ - Unicast ACK: - if the addressed remote is different than the one permitted to transmit.
+   In this case, the standalone unicast ACK is sent to acknowledge packets received from
+   from this remote.
+
+RM-> AP:
+ - RA - if remote is not in the AP's polling list (i.e. it is in IDLE state).
+
+ - DATA - if remote received unicast POLL and has uplink data
+
+ - DATA + ACK - if remote received unicast POLL + DATA and has uplink data
+
+ - ACK + NULL- if remote received unicast POLL + DATA and has no uplink data
+
+ - NULL - if remote received unicast POLL and has no uplink data
+
+NOTE: NULL frame is DATA frame with zero length.
+
+There are two modes of operation depending on the value of inactivity_timeout
+configured in the AP's configuration file.
+
+- inactivity_timeout = 0: In this case, AP schedules UL/DL transmissions to/from the
+  remote as long as there is pending downlink and/or uplink data. When there
+  is no pending data, the AP sends Release (NULL frame) message to the remote, which,
+  moves the remote into IDLE state.
+
+- inactivity_timeout != 0: In this case, AP schedules UL/DL transmissions to/from the
+  remote as long as the inactivity timer (per remote) is running. This timer is reset
+  whenever UL data is received from the remote. When the timer expires, the AP sends
+  Release (NULL frame) message to the remote, which, moves the remote into IDLE state.
+
+The remote scheduler is implemented in src/ap/mac_sched.cpp and is based on concepts
+from FQ_CODEL with remotes taking the place of traffic flows. In addition, the traffic
+flow queues themselves are serviced using FQ_CODEL algorithm  (src/common/fq_codel.cpp,
+src/common/codel.cpp).
+
+This remote and traffic scheduling design is inspired by the work presented in paper titled
+"Ending the Anomaly: Achieving Low Latency and Airtime Fairness in WiFi" by
+Toke Høiland-Jørgensen, Michał Kazior, Dave Täht, Per Hurtig, Anna Brunstrom.
+https://arxiv.org/abs/1703.00064v2

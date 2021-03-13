@@ -1,0 +1,30 @@
+INCLUDE(FindPkgConfig)
+if(NOT LIBFEC_FOUND)
+  #pkg_check_modules(LIBFEC_PKG libfec)
+
+  find_path(LIBFEC_INCLUDE_DIRS
+    NAMES fec.h
+    NO_DEFAULT_PATH
+    PATHS ${LIBFEC_PKG_INCLUDE_DIRS}
+          ${CMAKE_INSTALL_PREFIX}/include
+  )
+
+  find_library(LIBFEC_STATIC_LIBRARIES
+    NAMES libfec.a
+    NO_DEFAULT_PATH
+    PATHS ${LIBFEC_PKG_LIBRARY_DIRS}
+          ${CMAKE_INSTALL_PREFIX}/lib
+
+  )
+
+if(LIBFEC_INCLUDE_DIRS AND LIBFEC_STATIC_LIBRARIES)
+  set(LIBFEC_FOUND TRUE CACHE INTERNAL "libfec found")
+  message(STATUS "Found libfec: ${LIBFEC_INCLUDE_DIRS}, ${LIBFEC_STATIC_LIBRARIES}")
+else()
+  set(LIBFEC_FOUND FALSE CACHE INTERNAL "libfec found")
+  message(STATUS "libfec not found.")
+endif()
+
+mark_as_advanced(LIBFEC_STATIC_LIBRARIES LIBFEC_INCLUDE_DIRS)
+
+endif(NOT LIBFEC_FOUND)
