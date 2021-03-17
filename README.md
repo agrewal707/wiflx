@@ -7,9 +7,10 @@ radio (SDR) hardware. In particular, it has been developed to operate with (as w
 as on) PlutoSDR. It implements poll-based MAC loosely based on point co-ordinated
 function (PCF) mode of IEEE 802.11 MAC and uses OFDM modem from liquid-dsp for PHY
 operation. It implements air-time fairness based on concepts from FQ_CODEL packet
-scheduler including use of FQ_CODEL algorithm on traffic flows themselves to achieve
-fairness between flows and use of CODEL on flow queues to reduce latency by controlling
-queuing delay.
+scheduler including use of FQ_CODEL ([RFC8290](https://tools.ietf.org/html/rfc8290))
+on traffic flows themselves to achieve fairness between flows and use of CODEL 
+([RFC8289](https://tools.ietf.org/html/rfc8289)) on flow queues to reduce latency 
+by controlling queuing delay.
 
 Design
 ----
