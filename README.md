@@ -13,7 +13,11 @@ queuing delay.
 
 Design
 ----
-See docs/mac-design.txt
+![On PlutoSDR](/docs/wiflx-stack-design-on-plutosdr.jpg)
+
+![On x86 Host](/docs/wiflx-stack-design-on-x86.jpg)
+
+See docs/mac-design.txt for protocol operation.
 
 Dependencies
 ----
