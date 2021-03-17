@@ -202,7 +202,7 @@ file(GLOB_RECURSE LIQUID_DSP_INSTALL_FILES
 )
 
 ExternalProject_Add(soapysdr
-  PREFIX soapsdr
+  PREFIX soapysdr
 
   GIT_REPOSITORY "https://github.com/pothosware/SoapySDR.git"
   GIT_TAG "master"

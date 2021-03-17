@@ -178,8 +178,6 @@ private:
   std::list<std::weak_ptr<rm_ctx>> m_old_rms;
   std::mutex m_rm_list_mutex;
 
-  // pending PDUs
-  std::queue<std::pair<common::messages::mac::appdu,bool>> m_pdus;
   // queue to hold downlink unicast retry packets
   wiflx::common::txq_ctx m_retry_txq;
   // queue to hold downlink unicast release packets
