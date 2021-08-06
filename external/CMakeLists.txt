@@ -81,7 +81,7 @@ ExternalProject_Add(libiio
     -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_INSTALL_PREFIX}
     -DCMAKE_POSITION_INDEPENDENT_CODE:BOOL=TRUE
     -DINSTALL_UDEV_RULE:BOOL=FALSE
-    -DWITH_TESTS:BOOL=FALSE
+    -DWITH_TESTS:BOOL=TRUE
 )
 file(GLOB_RECURSE LIBIIO_INSTALL_FILES
   ${CMAKE_INSTALL_PREFIX}/include/iio*
@@ -242,8 +242,8 @@ ExternalProject_Add(json
 
 ExternalProject_Add(boost
   PREFIX boost
-  URL "https://dl.bintray.com/boostorg/release/1.74.0/source/boost_1_74_0.tar.bz2"
-  URL_HASH SHA256=83bfc1507731a0906e387fc28b7ef5417d591429e51e788417fe9ff025e116b1
+  URL "https://boostorg.jfrog.io/artifactory/main/release/1.76.0/source/boost_1_76_0.tar.bz2"
+  URL_HASH SHA256=f0397ba6e982c4450f27bf32a2a83292aba035b827a5623a14636ea583318c41
   BUILD_IN_SOURCE 1
   UPDATE_COMMAND ""
   PATCH_COMMAND echo "using gcc : ${CMAKE_SYSTEM_PROCESSOR} : ${CMAKE_CXX_COMPILER} $<SEMICOLON>" > user-config.jam

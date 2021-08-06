@@ -8,8 +8,8 @@ as on) PlutoSDR. It implements poll-based MAC loosely based on point co-ordinate
 function (PCF) mode of IEEE 802.11 MAC and uses OFDM modem from liquid-dsp for PHY
 operation. It implements air-time fairness based on concepts from FQ_CODEL packet
 scheduler including use of FQ_CODEL ([RFC8290](https://tools.ietf.org/html/rfc8290))
-on traffic flows themselves to achieve fairness between flows and use of CODEL 
-([RFC8289](https://tools.ietf.org/html/rfc8289)) on flow queues to reduce latency 
+on traffic flows themselves to achieve fairness between flows and use of CODEL
+([RFC8289](https://tools.ietf.org/html/rfc8289)) on flow queues to reduce latency
 by controlling queuing delay.
 
 Design
@@ -25,7 +25,7 @@ Dependencies
 WiFLX depends on following libraries.
 
 - Standard C++17
-- Boost ASIO
+- Boost ASIO, MSM
 - Google Protobuf
 - liquid-dsp
 - libfec
@@ -184,7 +184,7 @@ ip netns exec ap iperf -c 172.16.20.3 -f k -i 1 -t 30&
 
 On PlutoSDR:
 
-1. Login into each PlutoSDR using SSH
+1. Log into each PlutoSDR using SSH
 
 2. Start AP
 

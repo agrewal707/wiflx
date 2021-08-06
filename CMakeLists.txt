@@ -11,6 +11,8 @@ set (${PROJECT_NAME}_VERSION 0.0.1)
 # options
 option (WIFLX_RT_SCHED
   "Enable real rime thread scheduling" ON)
+option (WIFLX_GPIO_DEBUG
+   "Enable debugging TX/RX timing using GPIO" OFF)
 option (WIFLX_SIMULATION
   "Simulate WIFLX system" OFF)
 
@@ -25,3 +27,4 @@ configure_file (
 add_subdirectory (src/common)
 add_subdirectory (src/ap)
 add_subdirectory (src/rm)
+add_subdirectory (src/test)

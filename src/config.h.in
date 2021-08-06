@@ -3,8 +3,8 @@
 
 #define wiflx_VERSION @wiflx_VERSION@
 
-#cmakedefine WIFLX_SIMULATION
-
 #cmakedefine WIFLX_RT_SCHED
+#cmakedefine WIFLX_GPIO_DEBUG
+#cmakedefine WIFLX_SIMULATION
 
 #endif

@@ -44,22 +44,24 @@ void log_set_level (const quill::LogLevel level)
 
 void log_hexdump(const unsigned char buf[], int len, int dlen)
 {
+  char line[128];
   for (int i = 0; i < len; i += dlen)
   {
-    printf ("0x%04x: ", i);
+    char *p  = line;
+    p += sprintf (p, "0x%04x: ", i);
     for (int j = 0; j < dlen; ++j)
     {
       if ((i+j) < len)
       {
-        printf ("%02x ", static_cast<int32_t>(buf[i+j]));
+        p += sprintf (p, "%02x ", static_cast<int32_t>(buf[i+j]));
       }
       else
       {
-        printf("    ");
+        p += sprintf(p, "    ");
       }
     }
 
-    printf(" ");
+    p += sprintf(p, " ");
 
     for (int j = 0; j < dlen; ++j)
     {
@@ -67,15 +69,16 @@ void log_hexdump(const unsigned char buf[], int len, int dlen)
       {
         if (isprint(static_cast<int32_t>(buf[i+j])) != 0)
         {
-          printf ("%c", buf[i+j]);
+          p += sprintf (p, "%c", buf[i+j]);
         }
         else
         {
-          printf (".");
+          p+= sprintf (p, ".");
         }
       }
     }
-    printf ("\n");
+
+    WIFLX_LOG_DEBUG("{}", line);
   }
 }
 

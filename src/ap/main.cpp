@@ -16,6 +16,7 @@
 #include <thread>
 #include <config.h>
 #include <common/log.h>
+#include <common/gpio.h>
 #include <common/utils.h>
 #include <common/os_utils.h>
 #include <common/io_context.h>
@@ -42,6 +43,9 @@ int main (int C, char *V[])
       wiflx::common::log_init (std::string(V[2]));
 
     wiflx::common::log_set_level (quill::LogLevel::Debug);
+
+    WIFLX_GPIO_INIT();
+
     WIFLX_LOG_DEBUG ("WIFLX STARTED");
 
     const auto cfgstr = wiflx::common::get_file_content (V[1]);

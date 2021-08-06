@@ -17,6 +17,7 @@
 #include <common/ofdm.h>
 
 #include <common/log.h>
+#include <common/gpio.h>
 
 namespace wiflx {
 namespace common {
@@ -88,7 +89,9 @@ void ofdm_tx::send (const std::string &psdu)
   }
   if (frame_complete)
   {
+    WIFLX_GPIO_SET(common::gpio::GPIO_1);
     m_radio.tx_step();
+    WIFLX_GPIO_CLEAR(common::gpio::GPIO_1);
     ofdmflexframegen_reset (m_fg);
   }
 }
@@ -151,13 +154,13 @@ void ofdm_rx::step ()
 }
 
 int ofdm_rx::on_recv(
-  unsigned char *  _header,
+  unsigned char    *_header,
   int              _header_valid,
-  unsigned char *  _payload,
+  unsigned char    *_payload,
   unsigned int     _payload_len,
   int              _payload_valid,
   framesyncstats_s _stats,
-  void *           _userdata)
+  void             *_userdata)
 {
   ofdm_rx *rx = (ofdm_rx*)_userdata;
 
@@ -165,8 +168,13 @@ int ofdm_rx::on_recv(
   log_hexdump (_payload, _payload_len, 16);
   #endif
 
+  WIFLX_GPIO_SET(common::gpio::GPIO_0);
+
   WIFLX_LOG_DEBUG("evm: {:f} rssi: {:f} cfo: {:f} valid: {}", _stats.evm, _stats.rssi, _stats.cfo, _payload_valid);
   rx->m_listener->on_receive (_header, _header_valid, _payload, _payload_len, _payload_valid, _stats);
+
+  WIFLX_GPIO_CLEAR(common::gpio::GPIO_0);
+
   return 0;
 }
 
