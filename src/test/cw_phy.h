@@ -13,39 +13,41 @@
  * You should have received a copy of the GNU General Public License along
  * with this program; if not, see https://opensource.org/licenses/GPL-2.0
  */
+#ifndef WIFLX_TEST_CW_PHY_H
+#define WIFLX_TEST_CW_PHY_H
 
-#ifndef WIFLX_COMMON_GPIO_H
-#define WIFLX_COMMON_GPIO_H
-
-#include <config.h>
-
-#ifdef WIFLX_GPIO_DEBUG
-#define WIFLX_GPIO_INIT() wiflx::common::gpio::init()
-#define WIFLX_GPIO_SET(id) wiflx::common::gpio::set(id)
-#define WIFLX_GPIO_CLEAR(id) wiflx::common::gpio::clear(id)
-#else
-#define WIFLX_GPIO_INIT()
-#define WIFLX_GPIO_SET(id)
-#define WIFLX_GPIO_CLEAR(id)
-#endif
+#include <queue>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <common/io_context.h>
+#include <common/radio.h>
+#include <test/config.h>
 
 namespace wiflx {
-namespace common {
+namespace test {
 
-struct gpio
+class cw_phy
 {
-	enum ID
-	{
-		GPIO_0 = 0,
-		GPIO_1 = 1
-	};
+public:
+  cw_phy (const common::config::radio &rcfg,
+          const config::cw_test &cfg);
+  ~cw_phy ();
 
-	static void init ();
-	static void set (const ID id);
-	static void clear (const ID id);
+  void start ();
+  void stop ();
+  void tx_run ();
+
+private:
+  wiflx::common::pipebuf_cf m_rxbuff;
+  wiflx::common::pipebuf_cf m_txbuff;
+  wiflx::common::radio m_radio;
+  common::pipewriter_cf m_tx;
+  std::vector<std::complex<float>> m_buff;
+  bool m_stopped;
 };
 
-} // namespace common
+} // namespace test
 } // namespace wiflx
 
-#endif // WIFLX_COMMON_GPIO_H
+#endif // WIFLX_TEST_CW_PHY_H

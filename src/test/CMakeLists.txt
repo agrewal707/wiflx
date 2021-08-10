@@ -41,7 +41,10 @@ link_directories(
 # build
 set (WIFLX_TEST_SOURCES
   main.cpp
+  cw_phy.cpp
+  cw_phy_test.cpp
   ofdm_phy.cpp
+  ofdm_phy_test.cpp
 )
 
 set (WIFLX_TEST_EXE wiflx_test)

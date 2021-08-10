@@ -14,38 +14,12 @@
  * with this program; if not, see https://opensource.org/licenses/GPL-2.0
  */
 
-#ifndef WIFLX_COMMON_GPIO_H
-#define WIFLX_COMMON_GPIO_H
-
-#include <config.h>
-
-#ifdef WIFLX_GPIO_DEBUG
-#define WIFLX_GPIO_INIT() wiflx::common::gpio::init()
-#define WIFLX_GPIO_SET(id) wiflx::common::gpio::set(id)
-#define WIFLX_GPIO_CLEAR(id) wiflx::common::gpio::clear(id)
-#else
-#define WIFLX_GPIO_INIT()
-#define WIFLX_GPIO_SET(id)
-#define WIFLX_GPIO_CLEAR(id)
-#endif
+#include <test/cw_phy_test.h>
 
 namespace wiflx {
-namespace common {
+namespace test {
 
-struct gpio
-{
-	enum ID
-	{
-		GPIO_0 = 0,
-		GPIO_1 = 1
-	};
+WIFLX_OBJECT_FACTORY_REGISTER_IMPL(test_base, cw_phy_test);
 
-	static void init ();
-	static void set (const ID id);
-	static void clear (const ID id);
-};
-
-} // namespace common
+} // namespace test
 } // namespace wiflx
-
-#endif // WIFLX_COMMON_GPIO_H

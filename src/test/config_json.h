@@ -28,14 +28,15 @@ using json = nlohmann::json;
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
   config::cw_test,
-	dummy
+	tone_freq
 )
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
   config::ofdm_test,
-	tx_enable,
-	sdu_size,
-	ofdm
+  tx_enable,
+  tx_interval,
+  sdu_size,
+  ofdm
 )
 
 //
@@ -45,18 +46,26 @@ void to_json(json &j, const config &c) {
 	j = json
 	{
     {"type", c.m_type},
-		{"radio", c.m_radio},
-		{"cw_test", c.m_cw},
-		{"ofdm_test", c.m_ofdm},
-	};
+    {"radio", c.m_radio},
+    {"cw_test", c.m_cw},
+    {"ofdm_test", c.m_ofdm},
+  };
 }
 
 void from_json(const json &j, config &c)
 {
   j.at("type").get_to(c.m_type);
-	j.at("radio").get_to(c.m_radio);
-	j.at("cw_test").get_to(c.m_cw);
-	j.at("ofdm_test").get_to(c.m_ofdm);
+  j.at("radio").get_to(c.m_radio);
+  try
+  {
+    j.at("cw_test").get_to(c.m_cw);
+  }
+  catch (...){}
+  try
+  {
+    j.at("ofdm_test").get_to(c.m_ofdm);
+  }
+  catch (...){}
 }
 
 } // namespace test

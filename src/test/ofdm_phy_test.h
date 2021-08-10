@@ -16,6 +16,8 @@
 #ifndef WIFLX_TEST_OFDM_PHY_TEST_H
 #define WIFLX_TEST_OFDM_PHY_TEST_H
 
+#include <config.h>
+#include <common/os_utils.h>
 #include <test/test_base.h>
 #include <test/ofdm_phy.h>
 #include <test/mac_phy_interface.h>
@@ -69,16 +71,13 @@ struct ofdm_phy_test :
 
     m_phy.start ();
 
+    m_phy_rx_thread = std::move (std::thread (&wiflx::test::ofdm_phy::rx_run, &m_phy));
+    m_phy_tx_thread = std::move (std::thread (&wiflx::test::ofdm_phy::tx_run, &m_phy));
+
     #ifdef WIFLX_RT_SCHED
-      m_phy_rx_thread = std::move (std::thread (&wiflx::test::ofdm_phy::rx_run, &m_phy));
       //wiflx::common::set_thread_param (m_phy_rx_thread.native_handle(), "PHY RX", SCHED_FIFO, 1, 0);
       wiflx::common::set_thread_param (m_phy_rx_thread.native_handle(), "PHY RX", -1, 0, -1);
-
-      m_phy_tx_thread = std::move (std::thread (&wiflx::test::ofdm_phy::tx_run, &m_phy));
       wiflx::common::set_thread_param (m_phy_tx_thread.native_handle(), "PHY TX", SCHED_FIFO, 2, 0);
-    #else
-      m_rx_thread = std::move (std::thread (&wiflx::test::ofdm_phy::rx_run, &p));
-      m_tx_thread = std::move (std::thread (&wiflx::test::ofdm_phy::tx_run, &p));
     #endif
 
 		if (m_cfg.m_ofdm.tx_enable)
@@ -87,6 +86,8 @@ struct ofdm_phy_test :
 
   virtual void stop ()
   {
+    WIFLX_LOG_FUNCTION (this);
+
     m_phy.stop ();
     m_phy_rx_thread.join();
     m_phy_tx_thread.join();
@@ -107,13 +108,14 @@ struct ofdm_phy_test :
   virtual void on_send ()
   {
     send ();
+    usleep(m_cfg.m_ofdm.tx_interval);
   }
 
   virtual void on_receive (std::string &&psdu, const stats &st)
   {
     m_rx_total++;
 
-    common::log_hexdump ((const unsigned char*)psdu.data(), psdu.size(), 16);
+   //common::log_hexdump ((const unsigned char*)psdu.data(), psdu.size(), 16);
 
     if (st.m_valid)
     {
@@ -125,13 +127,13 @@ struct ofdm_phy_test :
       rx_seq |= *p++ << 8;
       rx_seq |= *p++ << 0;
 
-      auto dropped = rx_seq - m_rx_seq - 1;
-      if (dropped > 0)
+      auto gap = rx_seq - m_rx_seq;
+      if (gap > 1)
       {
-        m_rx_dropped += dropped;
-        WIFLX_LOG_ERROR ("{:d} DROPPED", dropped);
+        m_rx_dropped += gap-1;
+        WIFLX_LOG_ERROR ("{:d} DROPPED", gap-1);
       }
-      else
+      else if (gap < 0)
       {
         m_rx_ooseq++;
         WIFLX_LOG_ERROR ("OUT OF SEQ");
@@ -159,7 +161,6 @@ struct ofdm_phy_test :
   uint32_t m_rx_ooseq; // out of sequence
   uint32_t m_rx_dropped;
 };
-WIFLX_OBJECT_FACTORY_REGISTER_IMPL(test_base,ofdm_phy_test);
 
 } // namespace test
 } // namespace wiflx

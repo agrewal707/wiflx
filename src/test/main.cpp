@@ -18,10 +18,9 @@
 #include <common/log.h>
 #include <common/gpio.h>
 #include <common/utils.h>
-#include <common/os_utils.h>
 #include <common/io_context.h>
 #include <test/config_json.h>
-#include <test/ofdm_phy_test.h>
+#include <test/test_base.h>
 
 int main (int C, char *V[])
 {
@@ -53,11 +52,15 @@ int main (int C, char *V[])
     auto &test_factory = wiflx::test::test_base::get_factory ();
 
     std::unique_ptr<wiflx::test::test_base> t;
-    //if (cfg.m_type == wiflx::test::config::CW_PHY_TEST)
-   //   t = create_impl<cw_test> (cfg);
-     if (cfg.m_type == wiflx::test::config::OFDM_PHY_TEST)
+    if (cfg.m_type == wiflx::test::config::CW_PHY_TEST)
+      t.reset (test_factory.create_impl ("cw_phy_test", cfg));
+    else if (cfg.m_type == wiflx::test::config::OFDM_PHY_TEST)
       t.reset (test_factory.create_impl ("ofdm_phy_test", cfg));
-
+    else
+    {
+      WIFLX_LOG_ERROR("unknown test");
+      return -1;
+    }
     t->start ();
 
     wiflx::common::io_context ioc;

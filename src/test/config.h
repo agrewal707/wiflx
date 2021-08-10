@@ -32,12 +32,13 @@ struct config
 
   struct cw_test
   {
-    bool dummy;
+    float tone_freq;
   };
 
   struct ofdm_test
   {
     bool tx_enable;
+    int tx_interval;
     int sdu_size;
     common::config::ofdm ofdm;
   };
