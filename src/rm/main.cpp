@@ -74,24 +74,16 @@ int main (int C, char *V[])
     m.start ();
     l2.start ();
 
+    auto phy_rx_thread = std::move (std::thread (&wiflx::rm::phy::rx_run, &p));
+    auto phy_tx_thread = std::move (std::thread (&wiflx::rm::phy::tx_run, &p));
+    auto mac_timer_thread = std::move (std::thread (&wiflx::rm::mac::timer_run, &m));
+    auto l2iwf_thread = std::move (std::thread (&wiflx::rm::l2iwf::run, &l2));
+
 #ifdef WIFLX_RT_SCHED
-    auto phy_rx_thread = std::move (std::thread (&wiflx::rm::phy::rx_run, &p));
-    //wiflx::common::set_thread_param (phy_rx_thread.native_handle(), "PHY RX", SCHED_FIFO, 1, 0);
-    wiflx::common::set_thread_param (phy_rx_thread.native_handle(), "PHY RX", -1, 0, -1);
-
-    auto phy_tx_thread = std::move (std::thread (&wiflx::rm::phy::tx_run, &p));
+    wiflx::common::set_thread_param (phy_rx_thread.native_handle(), "PHY RX", SCHED_FIFO, 1, 0);
     wiflx::common::set_thread_param (phy_tx_thread.native_handle(), "PHY TX", SCHED_FIFO, 2, 0);
-
-    auto mac_timer_thread = std::move (std::thread (&wiflx::rm::mac::timer_run, &m));
     wiflx::common::set_thread_param (mac_timer_thread.native_handle(), "MAC TIMER", -1, 0, -1);
-
-    auto l2iwf_thread = std::move (std::thread (&wiflx::rm::l2iwf::run, &l2));
     wiflx::common::set_thread_param (l2iwf_thread.native_handle(), "L2 NETWORK", -1, 0, -1);
-#else
-    auto phy_rx_thread = std::move (std::thread (&wiflx::rm::phy::rx_run, &p));
-    auto phy_tx_thread = std::move (std::thread (&wiflx::rm::phy::tx_run, &p));
-    auto mac_timer_thread = std::move (std::thread (&wiflx::rm::mac::timer_run, &m));
-    auto l2iwf_thread = std::move (std::thread (&wiflx::rm::l2iwf::run, &l2));
 #endif
 
     wiflx::common::io_context ioc;

@@ -32,7 +32,7 @@ struct ofdm_phy_test :
   ofdm_phy_test (const wiflx::test::config &cfg) :
     test_base (cfg),
     m_cfg (cfg),
-    m_phy (cfg.m_radio, cfg.m_ofdm.ofdm),
+    m_phy (cfg.m_radio, cfg.m_ofdm_test.ofdm),
     m_tx_seq (0),
     m_rx_seq (0),
     m_rx_total (0),
@@ -43,7 +43,7 @@ struct ofdm_phy_test :
   {
     WIFLX_LOG_FUNCTION (this);
 
-    m_send_psdu.resize(cfg.m_ofdm.sdu_size);
+    m_send_psdu.resize(cfg.m_ofdm_test.sdu_size);
     char *p = m_send_psdu.data();
     for (int i = 4; i < m_send_psdu.size (); ++i)
     {
@@ -75,12 +75,11 @@ struct ofdm_phy_test :
     m_phy_tx_thread = std::move (std::thread (&wiflx::test::ofdm_phy::tx_run, &m_phy));
 
     #ifdef WIFLX_RT_SCHED
-      //wiflx::common::set_thread_param (m_phy_rx_thread.native_handle(), "PHY RX", SCHED_FIFO, 1, 0);
-      wiflx::common::set_thread_param (m_phy_rx_thread.native_handle(), "PHY RX", -1, 0, -1);
+      wiflx::common::set_thread_param (m_phy_rx_thread.native_handle(), "PHY RX", SCHED_FIFO, 1, 0);
       wiflx::common::set_thread_param (m_phy_tx_thread.native_handle(), "PHY TX", SCHED_FIFO, 2, 0);
     #endif
 
-		if (m_cfg.m_ofdm.tx_enable)
+		if (m_cfg.m_ofdm_test.tx_enable)
 			send ();
   }
 
@@ -108,7 +107,7 @@ struct ofdm_phy_test :
   virtual void on_send ()
   {
     send ();
-    usleep(m_cfg.m_ofdm.tx_interval);
+    usleep(m_cfg.m_ofdm_test.tx_interval);
   }
 
   virtual void on_receive (std::string &&psdu, const stats &st)

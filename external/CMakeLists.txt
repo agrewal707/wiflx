@@ -11,7 +11,7 @@ message( STATUS "CMAKE_SYSTEM_PROCESSOR: " ${CMAKE_SYSTEM_PROCESSOR} )
 message( STATUS "CMAKE_C_COMPILER_TARGET: " ${CMAKE_C_COMPILER_TARGET} )
 message( STATUS "CMAKE_CXX_COMPILER_TARGET: " ${CMAKE_CXX_COMPILER_TARGET} )
 
-#[[
+#[[ - NOT USED
 list(APPEND libusb_configure_cmd
   <SOURCE_DIR>/configure
   CC=${CMAKE_C_COMPILER}
@@ -68,11 +68,27 @@ file(GLOB_RECURSE FFTW_INSTALL_FILES
 )
 ]]
 
+ExternalProject_Add(tracy
+  PREFIX tracy
+
+  GIT_REPOSITORY "https://github.com/wolfpld/tracy.git"
+  GIT_TAG "0b03d7b2addab19fadbb0d09af25bc51f4b79a5c"
+
+  UPDATE_COMMAND ""
+  PATCH_COMMAND ""
+  CONFIGURE_COMMAND ""
+  BUILD_COMMAND ""
+  INSTALL_COMMAND cp -r <SOURCE_DIR> ${CMAKE_INSTALL_PREFIX}
+)
+file(GLOB_RECURSE TRACY_INSTALL_FILES
+  ${CMAKE_INSTALL_PREFIX}/tracy
+)
+
 ExternalProject_Add(libiio
   PREFIX libiio
 
   GIT_REPOSITORY "https://github.com/analogdevicesinc/libiio.git"
-  GIT_TAG "master"
+  GIT_TAG "v0.22"
 
   #PATCH_COMMAND patch < ${CMAKE_SOURCE_DIR}/libiio.patch
 
@@ -93,7 +109,7 @@ ExternalProject_Add(libad9361-iio
   PREFIX libad9361-iio
 
   GIT_REPOSITORY "https://github.com/analogdevicesinc/libad9361-iio.git"
-  GIT_TAG "master"
+  GIT_TAG "f8003df8abbb4a6fb34f2a6340d3ce6c19d871b1"
 
   CMAKE_CACHE_ARGS
     -DCMAKE_TOOLCHAIN_FILE:PATH=${CMAKE_TOOLCHAIN_FILE}
@@ -107,7 +123,7 @@ file(GLOB_RECURSE LIBAD9361_IIO_INSTALL_FILES
 
 list(APPEND fftw_configure_cmd
   <SOURCE_DIR>/configure
-  CC=${CMAKE_C_COMPILER}
+  "CC=${CMAKE_C_COMPILER} -Ofast"
   CFLAGS=-I${CMAKE_INSTALL_PREFIX}/include
   LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib
   --prefix=${CMAKE_INSTALL_PREFIX}
@@ -119,6 +135,7 @@ list(APPEND fftw_configure_cmd
 if(${CMAKE_C_COMPILER_TARGET} MATCHES arm)
 list(APPEND fftw_configure_cmd
   --enable-neon
+  --with-slow-timer
 )
 else()
 list(APPEND fftw_configure_cmd
@@ -146,7 +163,7 @@ file(GLOB_RECURSE FFTW_INSTALL_FILES
 
 list(APPEND libfec_configure_cmd
   <SOURCE_DIR>/configure
-  CC=${CMAKE_C_COMPILER}
+  "CC=${CMAKE_C_COMPILER} -Ofast"
   CFLAGS=-I${CMAKE_INSTALL_PREFIX}/include
   LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib
   --prefix=${CMAKE_INSTALL_PREFIX}
@@ -175,7 +192,7 @@ list(APPEND liquid_dsp_configure_cmd
   ac_cv_func_malloc_0_nonnull=yes
   ac_cv_func_realloc_0_nonnull=yes
   <SOURCE_DIR>/configure
-  CC=${CMAKE_C_COMPILER}
+  "CC=${CMAKE_C_COMPILER} -Ofast"
   CFLAGS=-I${CMAKE_INSTALL_PREFIX}/include
   LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib
   --prefix=${CMAKE_INSTALL_PREFIX}
@@ -186,9 +203,10 @@ ExternalProject_Add(liquid-dsp
   PREFIX liquid-dsp
 
   GIT_REPOSITORY "https://github.com/jgaeddert/liquid-dsp.git"
-  GIT_TAG "master"
+  GIT_TAG "cfd9c8d90a3059637bc5a62b718d6e33d1224188"
 
   BUILD_IN_SOURCE 1
+  BUILD_ALWAYS 1
   UPDATE_COMMAND ""
   PATCH_COMMAND ""
   CONFIGURE_COMMAND <SOURCE_DIR>/bootstrap.sh COMMAND ${liquid_dsp_configure_cmd}
@@ -206,6 +224,8 @@ ExternalProject_Add(soapysdr
 
   GIT_REPOSITORY "https://github.com/pothosware/SoapySDR.git"
   GIT_TAG "master"
+
+  PATCH_COMMAND patch -p1 < ${CMAKE_SOURCE_DIR}/soapysdr.patch
 
   CMAKE_CACHE_ARGS
     -DCMAKE_TOOLCHAIN_FILE:PATH=${CMAKE_TOOLCHAIN_FILE}
@@ -226,7 +246,7 @@ ExternalProject_Add(soapyplutosdr
     -DCMAKE_TOOLCHAIN_FILE:PATH=${CMAKE_TOOLCHAIN_FILE}
     -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_INSTALL_PREFIX}
 
-  DEPENDS libiio soapysdr
+  DEPENDS libiio libad9361-iio soapysdr
 )
 
 ExternalProject_Add(json
@@ -302,6 +322,7 @@ file(GLOB_RECURSE PROTOBUF_INSTALL_FILES
 
 set_property(DIRECTORY PROPERTY ADDITIONAL_MAKE_CLEAN_FILES
   ${CMAKE_INSTALL_PREFIX}/include/libusb-1.0
+  ${TRACY_INSTALL_FILES}
   ${LIBIIO_INSTALL_FILES}
   ${LIBAD9361_IIO_INSTALL_FILES}
   ${FFTW_INSTALL_FILES}

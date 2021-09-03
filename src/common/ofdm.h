@@ -82,8 +82,6 @@ private:
   listener *m_listener;
   ofdmflexframesync m_fs;
   pipereader_cf m_rx;
-
-  static int counter;
 };
 
 } // namespace common

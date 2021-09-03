@@ -47,8 +47,8 @@ void to_json(json &j, const config &c) {
 	{
     {"type", c.m_type},
     {"radio", c.m_radio},
-    {"cw_test", c.m_cw},
-    {"ofdm_test", c.m_ofdm},
+    {"cw_test", c.m_cw_test},
+    {"ofdm_test", c.m_ofdm_test},
   };
 }
 
@@ -56,16 +56,15 @@ void from_json(const json &j, config &c)
 {
   j.at("type").get_to(c.m_type);
   j.at("radio").get_to(c.m_radio);
-  try
+
+  if (config::CW_PHY_TEST == c.m_type)
   {
-    j.at("cw_test").get_to(c.m_cw);
+    j.at("cw_test").get_to(c.m_cw_test);
   }
-  catch (...){}
-  try
+  else if (config::OFDM_PHY_TEST == c.m_type)
   {
-    j.at("ofdm_test").get_to(c.m_ofdm);
+    j.at("ofdm_test").get_to(c.m_ofdm_test);
   }
-  catch (...){}
 }
 
 } // namespace test

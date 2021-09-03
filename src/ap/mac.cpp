@@ -24,6 +24,7 @@
 #include <boost/msm/front/euml/state_grammar.hpp>
 #include <common/log.h>
 #include <common/error.h>
+#include <common/profiling.h>
 
 namespace wiflx {
 namespace ap {
@@ -827,6 +828,8 @@ void mac::send (const uint16_t rid, const uint8_t tid, const uint32_t fid, std::
 {
   WIFLX_LOG_FUNCTION (this << rid << unsigned(tid) << fid << msdu.size ());
 
+  WIFLX_PROFILING_SCOPE_N("mac_send");
+
   unique_lock<mutex> lock (m_rm_map_mutex);
   const auto it = m_rm_map.find (rid);
   if (it == m_rm_map.end ())
@@ -863,12 +866,16 @@ void mac::on_send (const size_t bytes_sent)
 {
   WIFLX_LOG_FUNCTION (this << bytes_sent);
 
+  WIFLX_PROFILING_SCOPE_N("mac_on_send");
+
   FSM_PROCESS_EVENT (ev_sent ());
 }
 
 void mac::on_receive (std::string &&mpdu, const stats &st)
 {
   WIFLX_LOG_FUNCTION (this << mpdu.size () << st.m_valid);
+
+  WIFLX_PROFILING_SCOPE_N("mac_on_receive");
 
   const auto now = common::clock::now ();
 
@@ -1215,6 +1222,8 @@ void mac::update_airtime (const uint16_t rid, const size_t size)
 void mac::timer_run ()
 {
   WIFLX_LOG_FUNCTION (this);
+
+  WIFLX_PROFILING_SETTHREADNAME("MAC TIMER THREAD");
 
   m_timer_ioc.run ();
 }

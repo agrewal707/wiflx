@@ -37,7 +37,8 @@ struct gpio
 	enum ID
 	{
 		GPIO_0 = 0,
-		GPIO_1 = 1
+		GPIO_1 = 1,
+		GPIO_2 = 2
 	};
 
 	static void init ();

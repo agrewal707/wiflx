@@ -45,8 +45,8 @@ struct config
 
   Type m_type;
   common::config::radio m_radio;
-  cw_test m_cw;
-  ofdm_test m_ofdm;
+  cw_test m_cw_test;
+  ofdm_test m_ofdm_test;
 };
 
 } // namespace test

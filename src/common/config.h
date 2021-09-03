@@ -20,6 +20,7 @@
 #include <liquid/liquid.h>
 #include <string>
 #include <cstdlib>
+#include <vector>
 
 namespace wiflx {
 namespace common {
@@ -33,7 +34,9 @@ struct radio
   float rxgain;
   float txgain;
   float sampling_frequency;
-  float analog_bandwidth;
+  float rx_analog_bandwidth;
+  float tx_analog_bandwidth;
+  std::string fir_filter_file;
   size_t rx_buf_size;
   size_t rx_buf_count;
   size_t tx_buf_size;
@@ -42,10 +45,11 @@ struct radio
 
 struct ofdm
 {
-  unsigned int M           = 64;              // number of subcarriers
-  unsigned int cp_len      = 4;              // cyclic prefix length
-  unsigned int taper_len   = 2;               // taper length
-  //modulation_scheme ms = LIQUID_MODEM_QPSK;   // payload modulation scheme
+  unsigned int M = 64;          // number of subcarriers
+  unsigned int cp_len = 4;      // cyclic prefix length
+  unsigned int taper_len = 2;   // taper length
+  std::vector<unsigned char> p;
+  //modulation_scheme ms = LIQUID_MODEM_QPSK;  // payload modulation scheme
   modulation_scheme ms = LIQUID_MODEM_QAM16;   // payload modulation scheme
   //fec_scheme fec0  = LIQUID_FEC_SECDED7264;         // inner FEC scheme
   fec_scheme fec0  = LIQUID_FEC_NONE;         // inner FEC scheme

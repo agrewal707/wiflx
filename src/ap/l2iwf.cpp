@@ -20,6 +20,7 @@
 #include <common/error.h>
 #include <common/net.h>
 #include <common/hash.h>
+#include <common/profiling.h>
 
 namespace wiflx {
 namespace ap {
@@ -66,6 +67,8 @@ void l2iwf::run ()
 {
   WIFLX_LOG_FUNCTION (this);
 
+  WIFLX_PROFILING_SETTHREADNAME("L2IWF THREAD");
+
   m_ioc.run ();
 }
 
@@ -78,6 +81,8 @@ void l2iwf::tuntap_receive ()
     [this] (const boost::system::error_code &ec, size_t bytes_transferred)
   {
     WIFLX_LOG_FUNCTION("receive" << ec << bytes_transferred);
+
+    WIFLX_PROFILING_SCOPE_N("l2iwf_receive");
 
     if (!ec)
     {

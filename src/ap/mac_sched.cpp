@@ -18,6 +18,7 @@
 
 #include <common/log.h>
 #include <common/error.h>
+#include <common/profiling.h>
 
 namespace wiflx {
 namespace ap {
@@ -62,6 +63,8 @@ void mac::schedule_retry ()
 
 pair<weak_ptr<mac::rm_ctx>, mac::pktsptr> mac::get_next_remote ()
 {
+  WIFLX_PROFILING_SCOPE_N("get_next_remote");
+
   pair<weak_ptr<rm_ctx>, pktsptr> retval;
   auto &wrm = retval.first;
   retval.second = std::make_shared<packets> ();

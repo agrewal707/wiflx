@@ -12,11 +12,13 @@ set (${PROJECT_NAME}_VERSION 0.0.1)
 option (WIFLX_RT_SCHED
   "Enable real rime thread scheduling" ON)
 option (WIFLX_GPIO_DEBUG
-   "Enable debugging TX/RX timing using GPIO" OFF)
+  "Enable debugging TX/RX timing using GPIO" OFF)
+option (WIFLX_TRACY_PROFILING
+  "Profiling using Tracy profiler" OFF)
+option (WIFLX_OFDM_DEBUG
+  "Enable liquid-dsp OFDM debugging" OFF)
 option (WIFLX_SIMULATION
   "Simulate WIFLX system" OFF)
-
-# constants
 
 # options header file
 configure_file (
@@ -28,3 +30,6 @@ add_subdirectory (src/common)
 add_subdirectory (src/ap)
 add_subdirectory (src/rm)
 add_subdirectory (src/test)
+if(WIFLX_TRACY_PROFILING)
+  add_subdirectory (profiling)
+endif()

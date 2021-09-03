@@ -11,7 +11,7 @@ set(Boost_USE_RELEASE_LIBS       ON)  # only find release libs
 set(Boost_USE_MULTITHREADED      ON)
 set(Boost_USE_STATIC_RUNTIME     OFF)
 cmake_policy(SET CMP0057 NEW)
-message (STATUS "PATH PATH" ${CMAKE_INSTALL_PREFIX}/lib/cmake)
+message (STATUS "PATH" ${CMAKE_INSTALL_PREFIX}/lib/cmake)
 find_package (Boost 1.74.0 REQUIRED system PATHS ${CMAKE_INSTALL_PREFIX}/lib/cmake)
 
 include_directories(${LIQUID_DSP_INCLUDE_DIRS})
@@ -21,7 +21,7 @@ include_directories(${LIBFEC_INCLUDE_DIRS})
 link_directories(${LIBFEC_LIBRARY_DIRS})
 
 # build flags
-add_definitions (-std=c++11 -std=c++14 -std=c++17)
+add_definitions (-std=c++17)
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DWIFLX_TRACE")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fvisibility-inlines-hidden")
 set(CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS_MINSIZEREL} -fvisibility-inlines-hidden")
@@ -59,4 +59,7 @@ file (GLOB WIFLX_COMMON_SOURCES *.cpp)
 
 add_library(${PROJECT_NAME}_common STATIC ${WIFLX_COMMON_SOURCES})
 target_include_directories(${PROJECT_NAME}_common PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
-#target_link_libraries (${PROJECT_NAME}_common ${PROJECT_NAME}_messages)
+target_link_libraries (${PROJECT_NAME}_common -liio -lad9361)
+if(WIFLX_TRACY_PROFILING)
+target_link_libraries (${PROJECT_NAME}_common ${PROJECT_NAME}_profiling -ldl)
+endif()

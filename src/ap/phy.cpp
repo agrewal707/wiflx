@@ -17,6 +17,7 @@
 #include <ap/phy.h>
 
 #include <common/log.h>
+#include <common/profiling.h>
 
 namespace wiflx {
 namespace ap {
@@ -80,6 +81,8 @@ void phy::rx_run ()
 {
   WIFLX_LOG_FUNCTION (this);
 
+  WIFLX_PROFILING_SETTHREADNAME("RX THREAD");
+
   while (!m_stopped)
   {
     m_ofdm_rx.step ();
@@ -138,6 +141,8 @@ bool phy::wait_on_send (mac_phy::mcs &m, std::string &psdu)
 void phy::tx_run ()
 {
   WIFLX_LOG_FUNCTION (this);
+
+  WIFLX_PROFILING_SETTHREADNAME("TX THREAD");
 
   while (!m_stopped)
   {

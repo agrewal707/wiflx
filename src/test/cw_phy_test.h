@@ -30,7 +30,7 @@ struct cw_phy_test :
   cw_phy_test (const wiflx::test::config &cfg) :
     test_base (cfg),
     m_cfg (cfg),
-    m_phy (cfg.m_radio, cfg.m_cw)
+    m_phy (cfg.m_radio, cfg.m_cw_test)
   {
     WIFLX_LOG_FUNCTION (this);
   }

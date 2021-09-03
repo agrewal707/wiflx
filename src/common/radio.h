@@ -42,6 +42,8 @@ public:
   void stats ();
 
 private:
+  void pluto_load_fir_filter (const char *filename, long long rate);
+
   const config::radio &m_cfg;
   pipewriter_cf m_rx;
   pipereader_cf m_tx;

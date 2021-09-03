@@ -1,0 +1,5 @@
+set(TRACY_PATH ${CMAKE_INSTALL_PREFIX}/tracy)
+add_library(wiflx_profiling STATIC "${TRACY_PATH}/TracyClient.cpp")
+target_compile_features(wiflx_profiling PRIVATE cxx_std_17)
+target_include_directories(wiflx_profiling PUBLIC "${TRACY_PATH}")
+target_compile_definitions(wiflx_profiling PUBLIC TRACY_ENABLE=1 TRACY_ON_DEMAND=1 TRACY_ONLY_IPV4=1  TRACY_NO_FRAME_IMAGE=1)

@@ -7,7 +7,7 @@ CFG=$4
 LOG=$5
 
 $APP $CFG $LOG&
-sleep 5
+sleep 7
 ip addr add $IP dev $DEV
 ip link set dev $DEV up
 

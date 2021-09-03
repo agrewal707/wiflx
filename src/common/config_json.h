@@ -24,8 +24,6 @@ namespace wiflx {
 namespace common {
 namespace config {
 
-using json = nlohmann::json;
-
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
 	config::radio,
   uri,
@@ -34,7 +32,9 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
 	rxgain,
 	txgain,
 	sampling_frequency,
-	analog_bandwidth,
+	rx_analog_bandwidth,
+	tx_analog_bandwidth,
+	fir_filter_file,
 	rx_buf_size,
 	rx_buf_count,
 	tx_buf_size,
@@ -45,7 +45,11 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
 	config::ofdm,
   M,
 	cp_len,
-	taper_len
+	taper_len,
+	p,
+	ms,
+	fec0,
+	fec1
 )
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(

@@ -37,7 +37,12 @@
 namespace wiflx {
 namespace common {
 
-#define REC_INV_SQRT_BITS (8 * sizeof(uint16_t))
+ /* CoDel uses a 1024 nsec clock, encoded in u32
+  * This gives a range of 2199 seconds, because of signed compares
+  */
+#define CODEL_SHIFT 10
+#define REC_INV_SQRT_BITS (8 * sizeof(uint16_t)) /* or sizeof_in_bits(recInvSqrt) */
+/* needed shift to get a Q0.32 number from recInvSqrt */
 #define REC_INV_SQRT_SHIFT (32 - REC_INV_SQRT_BITS)
 
 class codel
@@ -55,8 +60,6 @@ public:
 private:
   /**
    * \brief Calculate the reciprocal square root of m_count by using Newton's method
-   *  http://en.wikipedia.org/wiki/Methods_of_computing_square_roots#Iterative_methods_for_reciprocal_square_roots
-   * m_recInvSqrt (new) = (m_recInvSqrt (old) / 2) * (3 - m_count * m_recInvSqrt^2)
    * \param recInvSqrt reciprocal value of sqrt (count)
    * \param count count value
    * \return The new recInvSqrt value
@@ -94,7 +97,7 @@ private:
    */
   static bool CoDelTimeAfter (uint32_t a, uint32_t b)
   {
-    return ((int)(a) - (int)(b) > 0);
+    return ((int64_t)(a) - (int64_t)(b) > 0);
   }
   /**
    * Check if CoDel time a is successive or equal to b
@@ -104,7 +107,7 @@ private:
    */
   static bool CoDelTimeAfterEq (uint32_t a, uint32_t b)
   {
-    return ((int)(a) - (int)(b) >= 0);
+    return ((int64_t)(a) - (int64_t)(b) >= 0);
   }
   /**
    * Check if CoDel time a is preceding b
@@ -114,7 +117,7 @@ private:
    */
   static bool CoDelTimeBefore (uint32_t a, uint32_t b)
   {
-    return  ((int)(a) - (int)(b) < 0);
+    return  ((int64_t)(a) - (int64_t)(b) < 0);
   }
   /**
    * Check if CoDel time a is preceding or equal to b
@@ -124,7 +127,7 @@ private:
    */
   static bool CoDelTimeBeforeEq (uint32_t a, uint32_t b)
   {
-    return ((int)(a) - (int)(b) <= 0);
+    return ((int64_t)(a) - (int64_t)(b) <= 0);
   }
 
   /**
@@ -135,25 +138,21 @@ private:
    * \return the value of A/B
    */
   /* borrowed from the linux kernel */
-  static inline uint32_t ReciprocalDivide (uint32_t A, uint32_t R)
+  static uint32_t ReciprocalDivide (uint32_t A, uint32_t R)
   {
     return (uint32_t)(((uint64_t)A * R) >> 32);
   }
   /* end kernel borrowings */
 
   /**
-   * Returns the current time translated in CoDel time representation (microseconds)
+   * Returns the current time translated in CoDel time representation
    * \return the current time
    */
   static uint32_t CoDelGetTime (void)
   {
     const auto now = wiflx::common::clock::now ();
-    return std::chrono::duration_cast<std::chrono::microseconds> (now.time_since_epoch()).count();
-  }
-
-  static uint32_t Time2Codel (const wiflx::common::clock::time_point &t)
-  {
-    return std::chrono::duration_cast<std::chrono::microseconds> (t.time_since_epoch()).count();
+    const uint64_t ns = std::chrono::duration_cast<std::chrono::nanoseconds> (now.time_since_epoch()).count();
+    return ns >> CODEL_SHIFT;
   }
 
   const config::codel &m_cfg;
@@ -164,10 +163,6 @@ private:
   uint16_t m_recInvSqrt;     //!< Reciprocal inverse square root
   uint32_t m_firstAboveTime; //!< Time to declare sojourn time above target
   uint32_t m_dropNext;       //!< Time to drop next packet
-  uint32_t m_state1;         //!< Number of times packet sojourn goes above target for interval
-  uint32_t m_state2;         //!< Number of times we perform next drop while in dropping state
-  uint32_t m_state3;         //!< Number of times we enter drop state and drop the fist packet
-  uint32_t m_states;         //!< Total number of times we are in state 1, state 2, or state 3
 };
 
 } // namespace common

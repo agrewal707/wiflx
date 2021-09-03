@@ -38,24 +38,26 @@ codel::codel (const config::codel &cfg) :
   m_dropping (false),
   m_recInvSqrt (~0U >> REC_INV_SQRT_SHIFT),
   m_firstAboveTime (0),
-  m_dropNext (0),
-  m_state1 (0),
-  m_state2 (0),
-  m_state3 (0),
-  m_states (0)
+  m_dropNext (0)
 {
   WIFLX_LOG_FUNCTION (this);
 }
 
+/*
+ http://en.wikipedia.org/wiki/Methods_of_computing_square_roots#Iterative_methods_for_reciprocal_square_roots
+ * new_invsqrt = (invsqrt / 2) * (3 - count * invsqrt^2)
+ *
+ * Here, invsqrt is a fixed point number (< 1.0), 32bit mantissa, aka Q0.32
+ */
 uint16_t codel::NewtonStep (uint16_t recInvSqrt, uint32_t count)
 {
   WIFLX_LOG_FUNCTION(recInvSqrt << count);
 
-  uint32_t invsqrt = ((uint32_t) recInvSqrt) << REC_INV_SQRT_SHIFT;
-  uint32_t invsqrt2 = ((uint64_t) invsqrt * invsqrt) >> 32;
-  uint64_t val = (3ll << 32) - ((uint64_t) count * invsqrt2);
+  uint32_t invsqrt = ((uint32_t)recInvSqrt) << REC_INV_SQRT_SHIFT;
+  uint32_t invsqrt2 = ((uint64_t)invsqrt * invsqrt) >> 32;
+  uint64_t val = (3LL << 32) - ((uint64_t)count * invsqrt2);
 
-  val >>= 2; /* avoid overflow */
+  val >>= 2; /* avoid overflow in following multiply */
   val = (val * invsqrt) >> (32 - 2 + 1);
   return static_cast<uint16_t>(val >> REC_INV_SQRT_SHIFT);
 }
@@ -77,6 +79,7 @@ bool codel::enqueue (packet &&pkt)
   }
 
   pkt.m_timestamp = clock::now ();
+  WIFLX_LOG_DEBUG ("seq: {:d}", pkt.m_seqid);
   m_txq.push (std::move(pkt));
   WIFLX_LOG_DEBUG ("Number packets {:d}, bytes {:d}", m_txq.packets (), m_txq.bytes ());
   return true;
@@ -94,7 +97,7 @@ bool codel::OkToDrop (const packet &pkt, uint32_t now)
 
   const auto delta = wiflx::common::clock::now() - pkt.timestamp();
   WIFLX_LOG_INFO ("seq:{:d}, sojourn time:{:d}ms", pkt.m_seqid, std::chrono::duration_cast<std::chrono::milliseconds>(delta).count());
-  uint32_t sojournTime = std::chrono::duration_cast<std::chrono::microseconds>(delta).count();
+  const uint32_t sojournTime = std::chrono::duration_cast<std::chrono::microseconds>(delta).count();
 
   if (CoDelTimeBefore (sojournTime, m_cfg.target) || m_txq.bytes () <= m_cfg.min_bytes)
   {
@@ -117,7 +120,6 @@ bool codel::OkToDrop (const packet &pkt, uint32_t now)
   {
     WIFLX_LOG_DEBUG ("Sojourn time has been above target for at least 'interval', it's OK to (possibly) drop packet.");
     okToDrop = true;
-    ++m_state1;
   }
   return okToDrop;
 }
@@ -157,21 +159,21 @@ std::tuple<packet,uint32_t,uint32_t> codel::dequeue (void)
     }
     else if (CoDelTimeAfterEq (now, m_dropNext))
     {
-      m_state2++;
+      // It's time for the next drop. Drop the current packet and
+      // dequeue the next. The dequeue might take us out of dropping
+      // state. If not, schedule the next drop.
+      // A large amount of packets in queue might result in drop
+      // rates so high that the next drop should happen now,
+      // hence the while loop.
       while (m_dropping && CoDelTimeAfterEq (now, m_dropNext))
       {
-        // It's time for the next drop. Drop the current packet and
-        // dequeue the next. The dequeue might take us out of dropping
-        // state. If not, schedule the next drop.
-        // A large amount of packets in queue might result in drop
-        // rates so high that the next drop should happen now,
-        // hence the while loop.
+        ++m_count;
+        m_recInvSqrt = NewtonStep (m_recInvSqrt, m_count);
+
         WIFLX_LOG_WARNING ("Sojourn time is still above target and it's time for next drop, drop seq:{:d}", pkt.m_seqid);
         bytes_dropped += pkt.size();
         ++packets_dropped;
 
-        ++m_count;
-        m_recInvSqrt = NewtonStep (m_recInvSqrt, m_count);
         pkt = m_txq.pop ();
         if (pkt)
         {
@@ -214,11 +216,14 @@ std::tuple<packet,uint32_t,uint32_t> codel::dequeue (void)
 
       OkToDrop (pkt, now);
       m_dropping = true;
-      ++m_state3;
+
       /*
        * if min went above target close to when we last went below it
        * assume that the drop rate that controlled the queue on the
-       * last cycle is a good starting point to control it now.
+       * last cycle is a good starting point to control it now. The 'm_dropNext'
+       * will be at most 'INTERVAL' later than the time of the last drop, so
+       * 'now - m_dropNext' is a good approximation of the time from the last drop
+       * until now.
        */
       int delta = m_count - m_lastCount;
       if (delta > 1 && CoDelTimeBefore (now - m_dropNext, 16 * m_cfg.interval))
@@ -237,7 +242,7 @@ std::tuple<packet,uint32_t,uint32_t> codel::dequeue (void)
       WIFLX_LOG_DEBUG ("Scheduled next drop at {:f}, now {:f}", (double)m_dropNext / 1000000, (double)now / 1000000);
     }
   }
-  ++m_states;
+
   WIFLX_LOG_DEBUG ("bytes_dropped {:d}, packets dropped {:d}", bytes_dropped, packets_dropped);
   return retval;
 }
