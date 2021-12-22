@@ -26,7 +26,8 @@ namespace config {
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
 	config::radio,
-  uri,
+	driver,
+	uri,
 	rxfreq,
 	txfreq,
 	rxgain,

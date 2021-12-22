@@ -11,7 +11,6 @@ message( STATUS "CMAKE_SYSTEM_PROCESSOR: " ${CMAKE_SYSTEM_PROCESSOR} )
 message( STATUS "CMAKE_C_COMPILER_TARGET: " ${CMAKE_C_COMPILER_TARGET} )
 message( STATUS "CMAKE_CXX_COMPILER_TARGET: " ${CMAKE_CXX_COMPILER_TARGET} )
 
-#[[ - NOT USED
 list(APPEND libusb_configure_cmd
   <SOURCE_DIR>/configure
   CC=${CMAKE_C_COMPILER}
@@ -22,6 +21,7 @@ list(APPEND libusb_configure_cmd
   --disable-udev
 )
 
+if(${CMAKE_SYSTEM_PROCESSOR} MATCHES x86)
 ExternalProject_Add(libusb
   PREFIX libusb
 
@@ -37,7 +37,9 @@ ExternalProject_Add(libusb
 file(GLOB_RECURSE FFTW_INSTALL_FILES
   ${CMAKE_INSTALL_PREFIX}/lib/libusb*
 )
+endif()
 
+#[[ - NOT USED
 list(APPEND libxml2_configure_cmd
   <SOURCE_DIR>/configure
   CC=${CMAKE_C_COMPILER}
@@ -132,7 +134,7 @@ list(APPEND fftw_configure_cmd
   --enable-single
 )
 
-if(${CMAKE_C_COMPILER_TARGET} MATCHES arm)
+if(${CMAKE_SYSTEM_PROCESSOR} MATCHES arm)
 list(APPEND fftw_configure_cmd
   --enable-neon
   --with-slow-timer
@@ -247,6 +249,68 @@ ExternalProject_Add(soapyplutosdr
   DEPENDS libiio libad9361-iio soapysdr
 )
 
+if(${CMAKE_SYSTEM_PROCESSOR} MATCHES x86)
+ExternalProject_Add(uhd
+  PREFIX uhd
+
+  GIT_REPOSITORY "https://github.com/EttusResearch/uhd.git"
+  GIT_TAG "v4.1.0.5"
+
+  SOURCE_SUBDIR host
+
+  CMAKE_CACHE_ARGS
+    -DCMAKE_TOOLCHAIN_FILE:PATH=${CMAKE_TOOLCHAIN_FILE}
+    -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_INSTALL_PREFIX}
+
+  DEPENDS libusb
+)
+file(GLOB_RECURSE UHD_INSTALL_FILES
+  ${CMAKE_INSTALL_PREFIX}/include/uhd.h
+)
+
+ExternalProject_Add(soapyuhd
+  PREFIX soapyuhd
+
+  GIT_REPOSITORY "https://github.com/pothosware/SoapyUHD.git"
+  GIT_TAG "master"
+
+  CMAKE_CACHE_ARGS
+    -DCMAKE_TOOLCHAIN_FILE:PATH=${CMAKE_TOOLCHAIN_FILE}
+    -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_INSTALL_PREFIX}
+
+  DEPENDS uhd soapysdr
+)
+
+ExternalProject_Add(bladerf
+  PREFIX bladerf
+
+  GIT_REPOSITORY "https://github.com/Nuand/bladeRF.git"
+  GIT_TAG "2021.10"
+
+  SOURCE_SUBDIR host
+
+  CMAKE_CACHE_ARGS
+    -DCMAKE_TOOLCHAIN_FILE:PATH=${CMAKE_TOOLCHAIN_FILE}
+    -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_INSTALL_PREFIX}
+    -DINSTALL_UDEV_RULES:BOOL=FALSE
+
+  DEPENDS libusb
+)
+
+ExternalProject_Add(soapybladerf
+  PREFIX soapybladerf
+
+  GIT_REPOSITORY "https://github.com/pothosware/SoapyBladeRF.git"
+  GIT_TAG "master"
+
+  CMAKE_CACHE_ARGS
+    -DCMAKE_TOOLCHAIN_FILE:PATH=${CMAKE_TOOLCHAIN_FILE}
+    -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_INSTALL_PREFIX}
+
+  DEPENDS bladerf soapysdr
+)
+endif()
+
 ExternalProject_Add(json
   PREFIX json
 
@@ -271,6 +335,14 @@ ExternalProject_Add(boost
   --user-config=user-config.jam
   --with-system
   --with-date_time
+if(${CMAKE_SYSTEM_PROCESSOR} MATCHES x86)
+  --with-chrono
+  --with-filesystem
+  --with-program_options
+  --with-serialization
+  --with-thread
+  --with-test
+endif()
   --variant=release
   --link=shared
   --runtime-link=shared

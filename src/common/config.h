@@ -28,6 +28,7 @@ namespace config {
 
 struct radio
 {
+  std::string driver;
   std::string uri;
   float rxfreq;
   float txfreq;

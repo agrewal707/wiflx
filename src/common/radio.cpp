@@ -38,8 +38,9 @@ radio::radio (const config::radio &cfg, pipebuf_cf &rxbuff, pipebuf_cf &txbuff):
 
   SoapySDR::Kwargs args =
   {
-    {"driver", "plutosdr" },
+    {"driver", m_cfg.driver.c_str() },
     {"uri", m_cfg.uri.c_str() },
+    {"serial", m_cfg.uri.c_str() },
     {"rx_buf_count", std::to_string(m_cfg.rx_buf_count)},
     {"tx_buf_count", std::to_string(m_cfg.tx_buf_count)}
   };
@@ -63,7 +64,19 @@ radio::radio (const config::radio &cfg, pipebuf_cf &rxbuff, pipebuf_cf &txbuff):
   SoapySDR::Kwargs rxargs =
   {
     {"bufflen", std::to_string(cfg.rx_buf_size) }
+
   };
+  if (args["driver"] == "uhd")
+  {
+    rxargs.emplace ("fullscale", "4.0");
+  }
+  else if (args["driver"] == "bladerf")
+  {
+    rxargs.emplace ("buffers", std::to_string(m_cfg.rx_buf_count));
+    rxargs.emplace ("buflen", std::to_string(m_cfg.rx_buf_size));
+  }
+
+
   m_rx_stream = m_sdr->setupStream (SOAPY_SDR_RX, SOAPY_SDR_CF32, std::vector<size_t>(), rxargs);
   if (!m_rx_stream)
   {
@@ -77,7 +90,7 @@ radio::radio (const config::radio &cfg, pipebuf_cf &rxbuff, pipebuf_cf &txbuff):
   m_sdr->setFrequency (SOAPY_SDR_TX, 0, cfg.txfreq);
   m_sdr->setGain (SOAPY_SDR_TX, 0, cfg.txgain);
 
-  if (!cfg.fir_filter_file.empty())
+  if (args["driver"] == "plutosdr" && !cfg.fir_filter_file.empty())
   {
     auto rate = cfg.sampling_frequency;
     if (rate < 25e6/(12*4))
@@ -85,13 +98,23 @@ radio::radio (const config::radio &cfg, pipebuf_cf &rxbuff, pipebuf_cf &txbuff):
       // decimation/interpolation on FPGA is required
       rate *= 8;
     }
-    pluto_load_fir_filter (cfg.fir_filter_file.c_str(), rate);
+    //pluto_load_fir_filter (cfg.fir_filter_file.c_str(), rate);
   }
 
   SoapySDR::Kwargs txargs =
   {
     {"bufflen", std::to_string(cfg.tx_buf_size) }
   };
+  if (args["driver"] == "uhd")
+  {
+    txargs.emplace ("fullscale", "4.0");
+  }
+  else if (args["driver"] == "bladerf")
+  {
+    txargs.emplace ("buffers", std::to_string(m_cfg.tx_buf_count));
+    txargs.emplace ("buflen", std::to_string(m_cfg.tx_buf_size));
+  }
+
   m_tx_stream  = m_sdr->setupStream (SOAPY_SDR_TX, SOAPY_SDR_CF32, std::vector<size_t>(), txargs);
   if (!m_tx_stream)
   {
@@ -193,11 +216,10 @@ void radio::tx_step ()
     WIFLX_PROFILING_SCOPE_N("radio_tx_step");
     //WIFLX_LOG_ERROR ("TX STEP {:d}", m_tx.readable());
     int flags = SOAPY_SDR_END_BURST;
-  //  int flags = 0;
-    long long txtime_ns = 0; // not used on pluto
+    //int flags = 0;
     std::vector<void*> buffs(1);
     buffs[0] = m_tx.rd();
-    const auto r = m_sdr->writeStream(m_tx_stream, buffs.data(), m_tx.readable(), flags, txtime_ns);
+    const auto r = m_sdr->writeStream(m_tx_stream, buffs.data(), m_tx.readable(), flags);
     if (r < 0)
     {
       WIFLX_LOG_ERROR ("unexpected writeStream error: {}", SoapySDR::errToStr(r));
@@ -229,7 +251,7 @@ void radio::info (const int direction)
     WIFLX_LOG_DEBUG("\n");
   }
   {
-    WIFLX_LOG_DEBUG("{} Gain: {:f}", dir, m_sdr->getGain (direction, 0, ""));
+    WIFLX_LOG_DEBUG("{} Gain: {:f}", dir, m_sdr->getGain (direction, 0));
   }
   {
     auto str_list = m_sdr->listGains(direction, 0);
@@ -253,6 +275,7 @@ void radio::stats ()
   WIFLX_LOG_DEBUG ("totalTxSamples: {:d}\n", m_total_tx_samples);
 }
 
+#if 0
 void radio::pluto_load_fir_filter (const char *filename, long long rate)
 {
   struct iio_device *dev = (struct iio_device*) (m_sdr->getNativeDeviceHandle());
@@ -332,6 +355,7 @@ void radio::pluto_load_fir_filter (const char *filename, long long rate)
 			throw std::runtime_error ("failed to enable trx fir filter");
 	}
 }
+#endif
 
 } // namespace common
 } // namespace wiflx
