@@ -322,6 +322,7 @@ ExternalProject_Add(json
     -DJSON_BuildTests:BOOL=FALSE
 )
 
+if(${CMAKE_SYSTEM_PROCESSOR} MATCHES x86)
 ExternalProject_Add(boost
   PREFIX boost
   URL "https://boostorg.jfrog.io/artifactory/main/release/1.76.0/source/boost_1_76_0.tar.bz2"
@@ -335,20 +336,40 @@ ExternalProject_Add(boost
   --user-config=user-config.jam
   --with-system
   --with-date_time
-if(${CMAKE_SYSTEM_PROCESSOR} MATCHES x86)
   --with-chrono
   --with-filesystem
   --with-program_options
   --with-serialization
   --with-thread
   --with-test
-endif()
   --variant=release
   --link=shared
   --runtime-link=shared
   --threading=multi
   INSTALL_COMMAND ""
 )
+else()
+ExternalProject_Add(boost
+  PREFIX boost
+  URL "https://boostorg.jfrog.io/artifactory/main/release/1.76.0/source/boost_1_76_0.tar.bz2"
+  URL_HASH SHA256=f0397ba6e982c4450f27bf32a2a83292aba035b827a5623a14636ea583318c41
+  BUILD_IN_SOURCE 1
+  UPDATE_COMMAND ""
+  PATCH_COMMAND echo "using gcc : ${CMAKE_SYSTEM_PROCESSOR} : ${CMAKE_CXX_COMPILER} $<SEMICOLON>" > user-config.jam
+  CONFIGURE_COMMAND ./bootstrap.sh --prefix=${CMAKE_INSTALL_PREFIX}
+  BUILD_COMMAND ./b2 install
+  --toolset=gcc-${CMAKE_SYSTEM_PROCESSOR}
+  --user-config=user-config.jam
+  --with-system
+  --with-date_time
+  --variant=release
+  --link=shared
+  --runtime-link=shared
+  --threading=multi
+  INSTALL_COMMAND ""
+)
+endif()
+
 file(GLOB_RECURSE BOOST_INSTALL_FILES
   ${CMAKE_INSTALL_PREFIX}/lib/libboost*
 )

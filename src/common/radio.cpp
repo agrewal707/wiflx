@@ -68,6 +68,8 @@ radio::radio (const config::radio &cfg, pipebuf_cf &rxbuff, pipebuf_cf &txbuff):
   };
   if (args["driver"] == "uhd")
   {
+    rxargs.emplace ("num_recv_frames", std::to_string(m_cfg.rx_buf_count));
+    rxargs.emplace ("recv_frame_size", std::to_string(cfg.rx_buf_size));
     rxargs.emplace ("fullscale", "4.0");
   }
   else if (args["driver"] == "bladerf")
@@ -75,7 +77,6 @@ radio::radio (const config::radio &cfg, pipebuf_cf &rxbuff, pipebuf_cf &txbuff):
     rxargs.emplace ("buffers", std::to_string(m_cfg.rx_buf_count));
     rxargs.emplace ("buflen", std::to_string(m_cfg.rx_buf_size));
   }
-
 
   m_rx_stream = m_sdr->setupStream (SOAPY_SDR_RX, SOAPY_SDR_CF32, std::vector<size_t>(), rxargs);
   if (!m_rx_stream)
@@ -107,6 +108,8 @@ radio::radio (const config::radio &cfg, pipebuf_cf &rxbuff, pipebuf_cf &txbuff):
   };
   if (args["driver"] == "uhd")
   {
+    rxargs.emplace ("num_send_frames", std::to_string(m_cfg.tx_buf_count));
+    rxargs.emplace ("send_frame_size", std::to_string(cfg.tx_buf_size));
     txargs.emplace ("fullscale", "4.0");
   }
   else if (args["driver"] == "bladerf")
