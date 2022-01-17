@@ -202,8 +202,8 @@ list(APPEND liquid_dsp_configure_cmd
 ExternalProject_Add(liquid-dsp
   PREFIX liquid-dsp
 
-  GIT_REPOSITORY "https://github.com/jgaeddert/liquid-dsp.git"
-  GIT_TAG "cfd9c8d90a3059637bc5a62b718d6e33d1224188"
+  GIT_REPOSITORY "https://github.com/agrewal707/liquid-dsp.git"
+  GIT_TAG "fix_ofdm_equalizer_gain_correction"
 
   BUILD_IN_SOURCE 1
   BUILD_ALWAYS 1
@@ -224,9 +224,7 @@ ExternalProject_Add(soapysdr
 
   GIT_REPOSITORY "https://github.com/pothosware/SoapySDR.git"
   GIT_TAG "master"
-
-  PATCH_COMMAND patch -p1 < ${CMAKE_SOURCE_DIR}/soapysdr.patch
-
+  
   CMAKE_CACHE_ARGS
     -DCMAKE_TOOLCHAIN_FILE:PATH=${CMAKE_TOOLCHAIN_FILE}
     -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_INSTALL_PREFIX}
