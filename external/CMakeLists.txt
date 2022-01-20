@@ -226,7 +226,9 @@ ExternalProject_Add(soapysdr
 
   GIT_REPOSITORY "https://github.com/pothosware/SoapySDR.git"
   GIT_TAG "master"
-  
+
+  PATCH_COMMAND patch -p1 < ${CMAKE_SOURCE_DIR}/soapysdr.patch
+
   CMAKE_CACHE_ARGS
     -DCMAKE_TOOLCHAIN_FILE:PATH=${CMAKE_TOOLCHAIN_FILE}
     -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_INSTALL_PREFIX}

@@ -91,6 +91,7 @@ radio::radio (const config::radio &cfg, pipebuf_cf &rxbuff, pipebuf_cf &txbuff):
   m_sdr->setFrequency (SOAPY_SDR_TX, 0, cfg.txfreq);
   m_sdr->setGain (SOAPY_SDR_TX, 0, cfg.txgain);
 
+#if defined(__arm__)
   if (args["driver"] == "plutosdr" && !cfg.fir_filter_file.empty())
   {
     auto rate = cfg.sampling_frequency;
@@ -99,8 +100,9 @@ radio::radio (const config::radio &cfg, pipebuf_cf &rxbuff, pipebuf_cf &txbuff):
       // decimation/interpolation on FPGA is required
       rate *= 8;
     }
-    //pluto_load_fir_filter (cfg.fir_filter_file.c_str(), rate);
+    pluto_load_fir_filter (cfg.fir_filter_file.c_str(), rate);
   }
+#endif
 
   SoapySDR::Kwargs txargs =
   {
@@ -278,7 +280,7 @@ void radio::stats ()
   WIFLX_LOG_DEBUG ("totalTxSamples: {:d}\n", m_total_tx_samples);
 }
 
-#if 0
+#if defined(__arm__)
 void radio::pluto_load_fir_filter (const char *filename, long long rate)
 {
   struct iio_device *dev = (struct iio_device*) (m_sdr->getNativeDeviceHandle());

@@ -1,21 +1,13 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index ff3d3de..c740100 100644
+index 20a638d..fa376ec 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -146,14 +146,14 @@ message(STATUS "#############################################")
- message(STATUS "## Begin configuration for Python support...")
- message(STATUS "#############################################")
- message(STATUS "Enabling optional Python bindings if possible...")
--add_subdirectory(python)
-+#add_subdirectory(python)
- 
- message(STATUS "")
- message(STATUS "#############################################")
- message(STATUS "## Begin configuration for Python3 support...")
- message(STATUS "#############################################")
- message(STATUS "Enabling optional Python3 bindings if possible...")
--add_subdirectory(python3)
-+#add_subdirectory(python3)
- 
+@@ -141,7 +141,7 @@ add_subdirectory(docs)
+ ########################################################################
+ # SWIG wrappers (optional)
+ ########################################################################
+-add_subdirectory(swig)
++#add_subdirectory(swig)
  
  ########################################################################
+ # uninstall target

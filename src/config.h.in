@@ -7,7 +7,6 @@
 #cmakedefine WIFLX_GPIO_DEBUG
 #cmakedefine WIFLX_TRACY_PROFILING
 #cmakedefine WIFLX_OFDM_DEBUG
-#cmakedefine WIFLX_SDR_IS_PLUTO
 #cmakedefine WIFLX_SIMULATION
 
 #endif
