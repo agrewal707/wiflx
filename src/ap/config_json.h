@@ -26,20 +26,25 @@ namespace ap {
 using json = nlohmann::json;
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
-  config::mac,
-  inactivity_timeout,
-  p_ack_timeout,
-  d_ack_timeout,
-  ra_ack_timeout,
-  max_poll_retries,
-  max_data_retries,
-  rm_airtime_quantum,
-  b_poll_airtime_quantum
+	config::mac,
+	inactivity_timeout,
+	p_ack_timeout,
+	d_ack_timeout,
+	ra_ack_timeout,
+	max_poll_retries,
+	max_data_retries,
+	rm_airtime_quantum,
+	b_poll_airtime_quantum
 )
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
-  config::l2iwf,
-  devname
+	config::l2iwf,
+	devname
 )
+
+NLOHMANN_JSON_SERIALIZE_ENUM(config::Type, {
+  {config::OFDM_PHY, "ofdm"},
+  {config::SC_PHY, "sc"},
+})
 
 //
 // config
@@ -47,10 +52,12 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
 void to_json(json &j, const config &c) {
 	j = json
 	{
+		{"type", c.m_type},
 		{"radio", c.m_radio},
 		{"ofdm", c.m_ofdm},
-    {"fq_codel", c.m_fq_codel},
-    {"codel", c.m_codel},
+		{"sc", c.m_sc},
+		{"fq_codel", c.m_fq_codel},
+		{"codel", c.m_codel},
 		{"mac", c.m_mac},
 		{"l2iwf", c.m_l2iwf},
 	};
@@ -58,10 +65,18 @@ void to_json(json &j, const config &c) {
 
 void from_json(const json &j, config &c)
 {
+	j.at("type").get_to(c.m_type);
 	j.at("radio").get_to(c.m_radio);
-	j.at("ofdm").get_to(c.m_ofdm);
-  j.at("fq_codel").get_to(c.m_fq_codel);
-  j.at("codel").get_to(c.m_codel);
+	if (config::OFDM_PHY == c.m_type)
+	{
+	 j.at("ofdm").get_to(c.m_ofdm);
+	}
+	if (config::SC_PHY == c.m_type)
+	{
+		j.at("sc").get_to(c.m_sc);
+	}
+	j.at("fq_codel").get_to(c.m_fq_codel);
+	j.at("codel").get_to(c.m_codel);
 	j.at("mac").get_to(c.m_mac);
 	j.at("l2iwf").get_to(c.m_l2iwf);
 }

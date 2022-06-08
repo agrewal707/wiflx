@@ -50,13 +50,18 @@ struct ofdm
   unsigned int cp_len = 4;      // cyclic prefix length
   unsigned int taper_len = 2;   // taper length
   std::vector<unsigned char> p;
-  //modulation_scheme ms = LIQUID_MODEM_QPSK;  // payload modulation scheme
-  modulation_scheme ms = LIQUID_MODEM_QAM16;   // payload modulation scheme
-  //fec_scheme fec0  = LIQUID_FEC_SECDED7264;         // inner FEC scheme
-  fec_scheme fec0  = LIQUID_FEC_NONE;         // inner FEC scheme
-  //  fec_scheme fec1  = LIQUID_FEC_HAMMING128;   // outer FEC scheme
-  fec_scheme fec1  = LIQUID_FEC_NONE;   // outer FEC scheme
-  crc_scheme check = LIQUID_CRC_32;           // data validity check
+  std::string ms;   // payload modulation scheme
+  std::string fec0; // inner FEC scheme
+  std::string fec1; // outer FEC scheme
+  std::string check; // data validity check
+};
+
+struct sc
+{
+  std::string ms;    // payload modulation scheme
+  std::string fec0;  // inner FEC scheme
+  std::string fec1;  // outer FEC scheme
+  std::string check; // data validity check
 };
 
 struct fq_codel

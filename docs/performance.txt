@@ -1,129 +1,34 @@
-B-POLL:
-
-ofdmflexframegen:
-    num subcarriers     :   64
-      * NULL            :   14
-      * pilot           :   6
-      * data            :   44
-    cyclic prefix len   :   4
-    taper len           :   2
-    properties:
-      * mod scheme      :   quadrature amplitude-shift keying (16)
-      * fec (inner)     :   none
-      * fec (outer)     :   none
-      * CRC scheme      :   CRC (32-bit)
-    frame assembled     :   yes
-    payload:
-      * decoded bytes   :   9
-      * encoded bytes   :   13
-      * modulated syms  :   26
-    total OFDM symbols  :   8
-      * S0 symbols      :   2 @ 68
-      * S1 symbols      :   1 @ 68
-      * header symbols  :   4 @ 68
-      * payload symbols :   1 @ 68
-    spectral efficiency :   0.1324 b/s/Hz
-
-
-U-DATA (1500 bytes) @64/4/2:
-
-ofdmflexframegen:
-    num subcarriers     :   64
-      * NULL            :   14
-      * pilot           :   6
-      * data            :   44
-    cyclic prefix len   :   4
-    taper len           :   2
-    properties:
-      * mod scheme      :   quadrature amplitude-shift keying (16)
-      * fec (inner)     :   none
-      * fec (outer)     :   none
-      * CRC scheme      :   CRC (32-bit)
-    frame assembled     :   yes
-    payload:
-      * decoded bytes   :   1530
-      * encoded bytes   :   1534
-      * modulated syms  :   3068
-    total OFDM symbols  :   77
-      * S0 symbols      :   2 @ 68
-      * S1 symbols      :   1 @ 68
-      * header symbols  :   4 @ 68
-      * payload symbols :   70 @ 68
-    spectral efficiency :   2.3377 b/s/Hz
-
-
-U-DATA (1500 bytes) 128/16/8
-
-ofdmflexframegen:
-    num subcarriers     :   128
-      * NULL            :   26
-      * pilot           :   12
-      * data            :   90
-    cyclic prefix len   :   16
-    taper len           :   8
-    properties:
-      * mod scheme      :   quadrature amplitude-shift keying (16)
-      * fec (inner)     :   none
-      * fec (outer)     :   none
-      * CRC scheme      :   CRC (32-bit)
-    frame assembled     :   yes
-    payload:
-      * decoded bytes   :   1500
-      * encoded bytes   :   1504
-      * modulated syms  :   3008
-    total OFDM symbols  :   39
-      * S0 symbols      :   2 @ 144
-      * S1 symbols      :   1 @ 144
-      * header symbols  :   2 @ 144
-      * payload symbols :   34 @ 144
-    spectral efficiency :   2.1368 b/s/Hz
-
-
-x86 Host:
-
-1. 1000Khz, OFDM 64/4/2, 16QAM:
-AP->RM:
-
-2. 500Khz, OFDM 64/4/2, 16QAM:
-AP->RM:
-
-RM->AP:
-
-3. 75Khz, OFDM 64/4/2, 16QAM:
-AP->RM:
-RM->AP:
-
 On PlutoSDR:
 
 RX: FIFO_SCHED, 1, 0
 TX: FIFO_SCHED, 2, 0
 
-1. 1000Khz, OFDM 128/16/8, 16QAM:
-TX_BUF: 544/6
-RX_BUF: 1088/4
+1. 1000Khz, OFDM 128/16/8, Fc=8Khz, 64QAM:
+TX_BUF: 576/6
+RX_BUF: 1152/4
 
 AP->RM:
-[  4]  0.0-30.3 sec  2663 KBytes   719 Kbits/sec
+[  4]  0.0-30.9 sec  3108 KBytes   824 Kbits/sec
 
 RM->AP:
-[  4]  0.0-30.4 sec  2637 KBytes   711 Kbits/sec
+[  4]  0.0-30.8 sec  3131 KBytes   832 Kbits/sec
 
-2. 500Khz, OFDM 64/4/2, 16QAM:
-TX_BUF: 272/6
-RX_BUF: 272/4
+2. 500Khz, OFDM 128/4/2, Fc=4Khz, 64QAM:
+TX_BUF: 288/6
+RX_BUF: 288/4
 
 AP->RM:
-[  4]  0.0-30.5 sec  2323 KBytes   624 Kbits/sec
+[  4]  0.0-30.7 sec  2854 KBytes   761 Kbits/sec
 
 RM->AP:
-[  4]  0.0-30.6 sec  2301 KBytes   616 Kbits/sec
+[  4]  0.0-30.3 sec  2824 KBytes   763 Kbits/sec
 
-3. 200khz,  OFDM 64/4/2, 16QAM:
+3. 200khz,  OFDM 64/4/2, Fc=4Khz, 256QAM:
 TX_BUF: 136/6
 RX_BUF: 136/4
 
 AP->RM:
-[  4]  0.0-31.5 sec  1184 KBytes   308 Kbits/sec
+[  4]  0.0-30.9 sec  1715 KBytes   455 Kbits/sec
 
 RM->AP:
-[  4]  0.0-31.5 sec  1184 KBytes   308 Kbits/sec
+[  4]  0.0-30.8 sec  1633 KBytes   434 Kbits/sec

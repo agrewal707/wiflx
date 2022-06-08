@@ -45,6 +45,8 @@ set (WIFLX_TEST_SOURCES
   cw_phy_test.cpp
   ofdm_phy.cpp
   ofdm_phy_test.cpp
+  sc_phy.cpp
+  sc_phy_test.cpp
 )
 
 set (WIFLX_TEST_EXE wiflx_test)

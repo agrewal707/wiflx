@@ -71,12 +71,17 @@ struct ofdm_phy_test :
 
     m_phy.start ();
 
-    m_phy_rx_thread = std::move (std::thread (&wiflx::test::ofdm_phy::rx_run, &m_phy));
-    m_phy_tx_thread = std::move (std::thread (&wiflx::test::ofdm_phy::tx_run, &m_phy));
+    if (m_cfg.m_ofdm_test.rx_enable)
+      m_phy_rx_thread = std::move (std::thread (&wiflx::test::ofdm_phy::rx_run, &m_phy));
+
+    if (m_cfg.m_ofdm_test.tx_enable)
+      m_phy_tx_thread = std::move (std::thread (&wiflx::test::ofdm_phy::tx_run, &m_phy));
 
     #ifdef WIFLX_RT_SCHED
-      wiflx::common::set_thread_param (m_phy_rx_thread.native_handle(), "PHY RX", SCHED_FIFO, 1, 0);
-      wiflx::common::set_thread_param (m_phy_tx_thread.native_handle(), "PHY TX", SCHED_FIFO, 2, 0);
+      if (m_cfg.m_ofdm_test.rx_enable)
+        wiflx::common::set_thread_param (m_phy_rx_thread.native_handle(), "PHY RX", SCHED_FIFO, 1, 0);
+      if (m_cfg.m_ofdm_test.tx_enable)
+        wiflx::common::set_thread_param (m_phy_tx_thread.native_handle(), "PHY TX", SCHED_FIFO, 2, 0);
     #endif
 
 		if (m_cfg.m_ofdm_test.tx_enable)
@@ -88,8 +93,10 @@ struct ofdm_phy_test :
     WIFLX_LOG_FUNCTION (this);
 
     m_phy.stop ();
-    m_phy_rx_thread.join();
-    m_phy_tx_thread.join();
+    if (m_cfg.m_ofdm_test.rx_enable)
+      m_phy_rx_thread.join();
+    if (m_cfg.m_ofdm_test.tx_enable)
+      m_phy_tx_thread.join();
   }
 
 	void send ()
@@ -106,8 +113,23 @@ struct ofdm_phy_test :
 
   virtual void on_send ()
   {
-    send ();
-    usleep(m_cfg.m_ofdm_test.tx_interval);
+    if (m_cfg.m_ofdm_test.num_packets > 0)
+    {
+      if (m_tx_seq < m_cfg.m_ofdm_test.num_packets)
+      {
+        send ();
+        usleep(m_cfg.m_ofdm_test.tx_interval);
+      }
+      else
+      {
+        kill(getpid(), SIGTERM);
+      }
+    }
+    else
+    {
+        send ();
+        usleep(m_cfg.m_ofdm_test.tx_interval);
+    }
   }
 
   virtual void on_receive (std::string &&psdu, const stats &st)

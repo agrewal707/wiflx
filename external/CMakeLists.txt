@@ -65,10 +65,36 @@ ExternalProject_Add(libxml2
   BUILD_COMMAND make
   INSTALL_COMMAND make install
 )
-file(GLOB_RECURSE FFTW_INSTALL_FILES
+file(GLOB_RECURSE LIBXML2_INSTALL_FILES
   ${CMAKE_INSTALL_PREFIX}/lib/libxml2*
 )
 ]]
+
+list(APPEND libconfig_configure_cmd
+  <SOURCE_DIR>/configure
+  CC=${CMAKE_C_COMPILER}
+  CFLAGS=-I${CMAKE_INSTALL_PREFIX}/include
+  LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib
+  --prefix=${CMAKE_INSTALL_PREFIX}
+  --host=${CMAKE_C_COMPILER_TARGET}
+  --disable-cxx
+)
+
+ExternalProject_Add(libconfig
+  PREFIX libconfig
+
+  URL https://hyperrealm.github.io/libconfig/dist/libconfig-1.7.3.tar.gz
+
+  BUILD_IN_SOURCE 1
+  UPDATE_COMMAND ""
+  PATCH_COMMAND ""
+  CONFIGURE_COMMAND COMMAND ${libconfig_configure_cmd}
+  BUILD_COMMAND make
+  INSTALL_COMMAND make install
+)
+file(GLOB_RECURSE LIBCONFIG_INSTALL_FILES
+  ${CMAKE_INSTALL_PREFIX}/lib/libconfig*
+)
 
 ExternalProject_Add(tracy
   PREFIX tracy
@@ -134,7 +160,7 @@ list(APPEND fftw_configure_cmd
   --enable-single
 )
 
-if(${CMAKE_SYSTEM_PROCESSOR} MATCHES arm)
+if(${CMAKE_SYSTEM_PROCESSOR} MATCHES armv7l)
 list(APPEND fftw_configure_cmd
   --enable-neon
   --with-slow-timer
@@ -205,12 +231,12 @@ ExternalProject_Add(liquid-dsp
   PREFIX liquid-dsp
 
   GIT_REPOSITORY "https://github.com/agrewal707/liquid-dsp.git"
-  GIT_TAG "fix_ofdm_equalizer_gain_correction"
+  GIT_TAG "hamnet-liquid-dsp-1.5.0"
 
   BUILD_IN_SOURCE 1
   BUILD_ALWAYS 1
   UPDATE_COMMAND ""
-  PATCH_COMMAND ""
+  PATCH_COMMAND patch -N -p1 < ${CMAKE_SOURCE_DIR}/liquid-dsp.patch || echo "WARNING: PATCH APPLIED?" && exit 0
   CONFIGURE_COMMAND <SOURCE_DIR>/bootstrap.sh COMMAND ${liquid_dsp_configure_cmd}
   BUILD_COMMAND make
   INSTALL_COMMAND make install
@@ -227,7 +253,7 @@ ExternalProject_Add(soapysdr
   GIT_REPOSITORY "https://github.com/pothosware/SoapySDR.git"
   GIT_TAG "master"
 
-  PATCH_COMMAND patch -p1 < ${CMAKE_SOURCE_DIR}/soapysdr.patch
+  PATCH_COMMAND patch -N -p1 < ${CMAKE_SOURCE_DIR}/soapysdr.patch || echo "WARNING: PATCH APPLIED?" && exit 0
 
   CMAKE_CACHE_ARGS
     -DCMAKE_TOOLCHAIN_FILE:PATH=${CMAKE_TOOLCHAIN_FILE}
@@ -380,7 +406,7 @@ ExternalProject_Add(quill
   PREFIX quill
 
   GIT_REPOSITORY "https://github.com/odygrd/quill.git"
-  GIT_TAG "master"
+  GIT_TAG "v2.0.1"
 
   CMAKE_CACHE_ARGS
     -DCMAKE_TOOLCHAIN_FILE:PATH=${CMAKE_TOOLCHAIN_FILE}

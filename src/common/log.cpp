@@ -28,7 +28,7 @@ void log_init (const std::string &logfile)
     file_handler = quill::file_handler(logfile, "w");
 
   file_handler->set_pattern(
-    QUILL_STRING("%(ascii_time) %(filename):%(function_name) %(message)"), // log recorder format
+    "%(ascii_time) %(filename):%(function_name) %(message)", // log recorder format
     "%H:%M:%S.%Qus", // timestamp format
     quill::Timezone::GmtTime); // timestamp's timezone
 

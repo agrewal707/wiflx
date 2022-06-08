@@ -17,6 +17,10 @@ option (WIFLX_TRACY_PROFILING
   "Profiling using Tracy profiler" OFF)
 option (WIFLX_OFDM_DEBUG
   "Enable liquid-dsp OFDM debugging" OFF)
+option (WIFLX_SC_DEBUG
+    "Enable liquid-dsp Single Carrier (SC) debugging" OFF)
+option (WIFLX_RADIO_DEBUG_SAMPLES
+    "Enable radio samples debugging" OFF)
 option (WIFLX_SIMULATION
   "Simulate WIFLX system" OFF)
 
@@ -30,6 +34,9 @@ add_subdirectory (src/common)
 add_subdirectory (src/ap)
 add_subdirectory (src/rm)
 add_subdirectory (src/test)
+if(WIFLX_RADIO_DEBUG_SAMPLES)
+  add_subdirectory (src/scratch)
+endif()
 if(WIFLX_TRACY_PROFILING)
   add_subdirectory (profiling)
 endif()

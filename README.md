@@ -152,7 +152,7 @@ set overlay path to $HOME/projects/plutosdr-fw/rootfs-overlay
 
 $ cd ~/project/wiflx
 $ ./overlay_onto_plutosdr_fw.sh
-$ cd ..
+$ cd ~/project/plutosdr-fw
 
 - Save config
 $ make -C buildroot ARCH=arm savedefconfig
@@ -171,6 +171,10 @@ $ echo “WAIT 4 minutes for firmware to update!!!!”
 
 Reference:
 https://wiki.analog.com/university/tools/pluto/users/firmware
+
+10. Executing WiFLX apps packaged into pluto firmware
+
+# SOAPY_SDR_ROOT=.. LD_LIBRARY_PATH=../lib ../bin/wiflx_test test_sc_tx_50khz.cfg
 
 ```
 
@@ -247,7 +251,7 @@ cd /tmp/host/projects/wiflx/tests/target/
 
 Debugging
 ----
-#### Using GPO for MAC protocol timing analyis
+#### Using GPO for MAC protocol timing analysis
 
 PlutoSDR supports general purpose outputs (GPO) that can be driven from the ARM application processor. The GPIO based debugging can be enabled by enabling WIFLX_GPIO_DEBUG cmake option (i.e. giving -DWIFLX_GPIO_DEBUG=1 to cmake during project configuration). The src/common/ofdm.cpp has been marked GPIO set/clear APIs to measure frame preparation, transmission as well as reception times:
 

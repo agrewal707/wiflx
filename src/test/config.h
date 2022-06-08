@@ -28,6 +28,7 @@ struct config
   {
     CW_PHY_TEST,
     OFDM_PHY_TEST,
+    SC_PHY_TEST,
   };
 
   struct cw_test
@@ -38,15 +39,28 @@ struct config
   struct ofdm_test
   {
     bool tx_enable;
-    int tx_interval;
+    bool rx_enable;
     int sdu_size;
+    int num_packets;
+    int tx_interval;
     common::config::ofdm ofdm;
+  };
+
+  struct sc_test
+  {
+    bool tx_enable;
+    bool rx_enable;
+    int sdu_size;
+    int num_packets;
+    int tx_interval;
+    common::config::sc sc;
   };
 
   Type m_type;
   common::config::radio m_radio;
   cw_test m_cw_test;
   ofdm_test m_ofdm_test;
+  sc_test m_sc_test;
 };
 
 } // namespace test

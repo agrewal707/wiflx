@@ -34,10 +34,28 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
   config::ofdm_test,
   tx_enable,
-  tx_interval,
+  rx_enable,
   sdu_size,
+  num_packets,
+  tx_interval,
   ofdm
 )
+
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
+  config::sc_test,
+  tx_enable,
+  rx_enable,
+  sdu_size,
+  num_packets,
+  tx_interval,
+  sc
+)
+
+NLOHMANN_JSON_SERIALIZE_ENUM(config::Type, {
+  {config::CW_PHY_TEST, "cw_test"},
+  {config::OFDM_PHY_TEST, "ofdm_test"},
+  {config::SC_PHY_TEST, "sc_test"},
+})
 
 //
 // config
@@ -49,6 +67,7 @@ void to_json(json &j, const config &c) {
     {"radio", c.m_radio},
     {"cw_test", c.m_cw_test},
     {"ofdm_test", c.m_ofdm_test},
+    {"sc_test", c.m_sc_test},
   };
 }
 
@@ -64,6 +83,10 @@ void from_json(const json &j, config &c)
   else if (config::OFDM_PHY_TEST == c.m_type)
   {
     j.at("ofdm_test").get_to(c.m_ofdm_test);
+  }
+  else if (config::SC_PHY_TEST == c.m_type)
+  {
+    j.at("sc_test").get_to(c.m_sc_test);
   }
 }
 

@@ -1070,7 +1070,7 @@ void mac::process_ack (
     {
       if (a.error ())
       {
-        WIFLX_LOG_ERROR ("ack error: {:d}", a.error ());
+        WIFLX_LOG_ERROR ("ack error: {}", a.error ());
         tx_failure (rm);
       }
       else

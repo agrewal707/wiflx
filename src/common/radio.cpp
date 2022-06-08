@@ -22,7 +22,7 @@
 #include <iio.h>
 #include <ad9361.h>
 
-#define WIFLX_RADIO_SAMPLE_PRINT 0
+#define DEBUG_BUFFER_LEN (16384)
 
 namespace wiflx {
 namespace common {
@@ -91,7 +91,6 @@ radio::radio (const config::radio &cfg, pipebuf_cf &rxbuff, pipebuf_cf &txbuff):
   m_sdr->setFrequency (SOAPY_SDR_TX, 0, cfg.txfreq);
   m_sdr->setGain (SOAPY_SDR_TX, 0, cfg.txgain);
 
-#if defined(__arm__)
   if (args["driver"] == "plutosdr" && !cfg.fir_filter_file.empty())
   {
     auto rate = cfg.sampling_frequency;
@@ -102,7 +101,6 @@ radio::radio (const config::radio &cfg, pipebuf_cf &rxbuff, pipebuf_cf &txbuff):
     }
     pluto_load_fir_filter (cfg.fir_filter_file.c_str(), rate);
   }
-#endif
 
   SoapySDR::Kwargs txargs =
   {
@@ -131,11 +129,24 @@ radio::radio (const config::radio &cfg, pipebuf_cf &rxbuff, pipebuf_cf &txbuff):
     SoapySDR::Device::unmake (m_sdr);
     throw std::runtime_error ("setup tx stream failed");
   }
+
+  #ifdef WIFLX_RADIO_DEBUG_SAMPLES
+   m_debug_tx = windowcf_create(DEBUG_BUFFER_LEN);
+   m_debug_rx = windowcf_create(DEBUG_BUFFER_LEN);
+  #endif
 }
 
 radio::~radio ()
 {
   WIFLX_LOG_FUNCTION (this);
+
+  stats ();
+
+  #ifdef WIFLX_RADIO_DEBUG_SAMPLES
+    dump_debug_data ("/tmp/wiflx_radio_samples.m");
+    windowcf_destroy(m_debug_tx);
+    windowcf_destroy(m_debug_rx);
+  #endif
 
   if (m_sdr)
   {
@@ -196,12 +207,8 @@ size_t radio::rx_step ()
     }
     else if (retval > 0)
     {
-      #if WIFLX_RADIO_SAMPLE_PRINT
-      auto *x = m_rx.wr();
-      for (int i = 0; i < retval; ++i)
-      {
-        WIFLX_LOG_DEBUG ("{:.4f} {:.4f} {:.4f} {:.4f}", std::real(x[i]), std::imag(x[i]), std::norm(x[i]), std::abs(x[i]));
-      }
+      #ifdef WIFLX_RADIO_DEBUG_SAMPLES
+        windowcf_write (m_debug_rx, m_rx.wr(), retval);
       #endif
 
       m_total_rx_samples += retval;
@@ -231,12 +238,8 @@ void radio::tx_step ()
     }
     else
     {
-      #if WIFLX_RADIO_SAMPLE_PRINT
-      auto *x = m_tx.rd();
-      for (int i = 0; i < r; ++i)
-      {
-        WIFLX_LOG_DEBUG ("{:.4f} {:.4f} {:.4f} {:.4f}", std::real(x[i]), std::imag(x[i]), std::norm(x[i]), std::abs(x[i]));
-      }
+      #ifdef WIFLX_RADIO_DEBUG_SAMPLES
+        windowcf_write (m_debug_tx, m_tx.rd(), r);
       #endif
 
       m_total_tx_samples += r;
@@ -280,7 +283,6 @@ void radio::stats ()
   WIFLX_LOG_DEBUG ("totalTxSamples: {:d}\n", m_total_tx_samples);
 }
 
-#if defined(__arm__)
 void radio::pluto_load_fir_filter (const char *filename, long long rate)
 {
   struct iio_device *dev = (struct iio_device*) (m_sdr->getNativeDeviceHandle());
@@ -359,6 +361,51 @@ void radio::pluto_load_fir_filter (const char *filename, long long rate)
 		if (ret < 0)
 			throw std::runtime_error ("failed to enable trx fir filter");
 	}
+}
+
+#ifdef WIFLX_RADIO_DEBUG_SAMPLES
+void radio::dump_debug_data (const char *_filename)
+{
+  auto* fid = fopen(_filename,"w");
+  if (!fid) {
+    WIFLX_LOG_ERROR("could not open {} for writing", _filename);
+    return;
+  }
+
+  fprintf(fid,"%% %s: auto-generated file", _filename);
+  fprintf(fid,"\n\n");
+  fprintf(fid,"clear all;\n");
+  fprintf(fid,"close all;\n\n");
+  fprintf(fid,"n = %u;\n", DEBUG_BUFFER_LEN);
+
+  std::complex<float> *rc;
+
+  // write TX
+  fprintf(fid,"tx = zeros(1,n);\n");
+  windowcf_read(m_debug_tx, &rc);
+  for (unsigned i=0; i<DEBUG_BUFFER_LEN; i++)
+    fprintf(fid,"tx(%4u) = %12.4e + j*%12.4e;\n", i+1, std::real(rc[i]), std::imag(rc[i]));
+  fprintf(fid,"\n\n");
+
+  // TX figure
+  fprintf(fid,"figure('Name', 'TX', 'Color','white','position',[100 100 800 600]);\n");
+  fprintf(fid,"plotspec2(tx(1:end), %f, [0 60], [-100 0]);\n", 1/m_cfg.sampling_frequency);
+
+  // write RX
+  fprintf(fid,"rx = zeros(1,n);\n");
+  windowcf_read(m_debug_rx, &rc);
+  for (unsigned i=0; i<DEBUG_BUFFER_LEN; i++)
+    fprintf(fid,"rx(%4u) = %12.4e + j*%12.4e;\n", i+1, std::real(rc[i]), std::imag(rc[i]));
+  fprintf(fid,"\n\n");
+
+  // RX figure
+  fprintf(fid,"figure('Name', 'RX', 'Color','white','position',[100 100 800 600]);\n");
+  fprintf(fid,"plotspec2(rx(1:end), %f, [0 6], [-100 0]);\n", 1/m_cfg.sampling_frequency);
+
+  fprintf(fid,"\n\n");
+  fclose(fid);
+
+  WIFLX_LOG_INFO("tx/rx samples written to {}", _filename);
 }
 #endif
 

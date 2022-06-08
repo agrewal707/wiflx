@@ -1,5 +1,5 @@
 set(CMAKE_SYSTEM_NAME Linux)
-set(CMAKE_SYSTEM_PROCESSOR arm)
+set(CMAKE_SYSTEM_PROCESSOR armv7l)
 
 set(CMAKE_SYSROOT /home/agrewal/projects/plutosdr-fw/buildroot/output/staging/)
 list(APPEND CMAKE_FIND_ROOT_PATH ${CMAKE_INSTALL_PREFIX})

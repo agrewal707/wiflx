@@ -47,8 +47,16 @@ struct config
     std::string devname;
   };
 
+  enum Type
+  {
+    OFDM_PHY,
+    SC_PHY
+  };
+
+  Type m_type;
   common::config::radio m_radio;
   common::config::ofdm m_ofdm;
+  common::config::sc m_sc;
   common::config::fq_codel m_fq_codel;
   common::config::codel m_codel;
   mac m_mac;

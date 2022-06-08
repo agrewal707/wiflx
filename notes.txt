@@ -1,0 +1,23 @@
+AD936x TX internals:
+   FIR: 128 taps, interpolation 1..4
+   Half-band filters, interpolation 1..12
+   DAC: 320 MHz
+   Analog baseband filter: 200..40000 kHz
+   Upconverter: 70..6000 MHz
+
+ 61444000 to 25000000 Hz: Supported natively.
+ 25000000 to  2083333 Hz: The IIO driver enables HB interpolators.
+  2083333 to   520833 Hz: We must enable FIR with interpolation.
+   520833 to    65104 Hz: We must enable interpolation in the FPGA.
+
+AD936x RX internals:
+   Downconverter: 70..6000 MHz
+   Analog baseband filter: 200..56000 kHz
+   ADC: 25..640 MHz
+   Half-band filters, decimation 1..12
+   FIR: 128 taps, decimation 1..4
+
+ 61444000 to 25000000 Hz: Supported natively by the ADC.
+ 25000000 to  2083333 Hz: The IIO driver enables HB filters automatically.
+  2083333 to   520833 Hz: We must enable FIR with decimation.
+   520833 to    65104 Hz: We must enable decimation in the FPGA.

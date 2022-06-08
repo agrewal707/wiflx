@@ -22,8 +22,10 @@
 #include <SoapySDR/Formats.hpp>
 #include <SoapySDR/Errors.hpp>
 
+#include <config.h>
 #include <common/config.h>
 #include <common/pipebuf.h>
+#include <liquid/liquid.h>
 
 namespace wiflx {
 namespace common {
@@ -52,6 +54,12 @@ private:
   SoapySDR::Stream *m_tx_stream;
   long long m_total_rx_samples;
   long long m_total_tx_samples;
+
+  #ifdef WIFLX_RADIO_DEBUG_SAMPLES
+  void dump_debug_data (const char *_filename);
+  windowcf m_debug_tx;
+  windowcf m_debug_rx;
+  #endif
 };
 
 } // namespace common

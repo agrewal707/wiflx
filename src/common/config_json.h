@@ -44,13 +44,22 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
 	config::ofdm,
-  M,
+	M,
 	cp_len,
 	taper_len,
 	p,
 	ms,
 	fec0,
-	fec1
+	fec1,
+	check
+)
+
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
+	config::sc,
+	ms,
+	fec0,
+	fec1,
+	check
 )
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(

@@ -36,10 +36,10 @@ ofdm_tx::ofdm_tx (const config::ofdm &cfg, pipebuf_cf &buff, radio &r) :
 
   ofdmflexframegenprops_s fgprops;
   ofdmflexframegenprops_init_default(&fgprops);
-  fgprops.check           = m_cfg.check;        // set the error-detection scheme
-  fgprops.fec0            = m_cfg.fec0;         // set the inner FEC scheme
-  fgprops.fec1            = m_cfg.fec1;         // set the outer FEC scheme
-  fgprops.mod_scheme      = m_cfg.ms;           // set the modulation scheme
+  fgprops.mod_scheme      = liquid_getopt_str2mod(m_cfg.ms.c_str()); // set the modulation scheme
+  fgprops.fec0            = liquid_getopt_str2fec(m_cfg.fec0.c_str()); // set the inner FEC scheme
+  fgprops.fec1            = liquid_getopt_str2fec(m_cfg.fec1.c_str()); // set the outer FEC scheme
+  fgprops.check           = liquid_getopt_str2crc(m_cfg.check.c_str()); // set the error-detection scheme
 
   // subcarrier allocation (null/pilot/data)
   unsigned char p[m_cfg.M];
@@ -136,7 +136,7 @@ ofdm_rx::~ofdm_rx ()
   WIFLX_LOG_FUNCTION (this);
 
 #ifdef WIFLX_OFDM_DEBUG
-  ofdmflexframesync_debug_print (m_fs, "/tmp/rx_debug.m");
+  ofdmflexframesync_debug_print (m_fs, "/tmp/ofdm_rx_debug.m");
 #endif
 
   ofdmflexframesync_destroy (m_fs);

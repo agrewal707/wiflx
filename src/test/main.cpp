@@ -24,60 +24,62 @@
 
 int main (int C, char *V[])
 {
-  using json = nlohmann::json;
+	using json = nlohmann::json;
 
-  if (C < 2)
-  {
-    fprintf(stderr, "Usage: %s test.cfg [logfile]\n", V[0]);
-    exit(-1);
-  }
-
-  try
+	if (C < 2)
 	{
-    if (C < 3)
-      wiflx::common::log_init ();
-    else
-      wiflx::common::log_init (std::string(V[2]));
+		fprintf(stderr, "Usage: %s test.cfg [logfile]\n", V[0]);
+		exit(-1);
+	}
 
-    wiflx::common::log_set_level (quill::LogLevel::Debug);
+	try
+	{
+		if (C < 3)
+			wiflx::common::log_init ();
+		else
+			wiflx::common::log_init (std::string(V[2]));
 
-    WIFLX_GPIO_INIT();
+		wiflx::common::log_set_level (quill::LogLevel::Debug);
 
-    WIFLX_LOG_DEBUG ("TEST STARTED");
+		WIFLX_GPIO_INIT();
 
-    const auto cfgstr = wiflx::common::get_file_content (V[1]);
-    const json j = json::parse (cfgstr, nullptr, true, true);
-    const auto cfg = j.get<wiflx::test::config> ();
+		WIFLX_LOG_DEBUG ("TEST STARTED");
 
-    auto &test_factory = wiflx::test::test_base::get_factory ();
+		const auto cfgstr = wiflx::common::get_file_content (V[1]);
+		const json j = json::parse (cfgstr, nullptr, true, true);
+		const auto cfg = j.get<wiflx::test::config> ();
 
-    std::unique_ptr<wiflx::test::test_base> t;
-    if (cfg.m_type == wiflx::test::config::CW_PHY_TEST)
-      t.reset (test_factory.create_impl ("cw_phy_test", cfg));
-    else if (cfg.m_type == wiflx::test::config::OFDM_PHY_TEST)
-      t.reset (test_factory.create_impl ("ofdm_phy_test", cfg));
-    else
-    {
-      WIFLX_LOG_ERROR("unknown test");
-      return -1;
-    }
-    t->start ();
+		auto &test_factory = wiflx::test::test_base::get_factory ();
 
-    wiflx::common::io_context ioc;
-    boost::asio::signal_set signals (ioc, SIGINT, SIGTERM);
-    signals.async_wait (
-      [&] (const boost::system::error_code &ec, int signal)
-        {
-          t->stop ();
-          ioc.stop ();
-        });
+		std::unique_ptr<wiflx::test::test_base> t;
+		if (cfg.m_type == wiflx::test::config::CW_PHY_TEST)
+			t.reset (test_factory.create_impl ("cw_phy_test", cfg));
+		else if (cfg.m_type == wiflx::test::config::OFDM_PHY_TEST)
+			t.reset (test_factory.create_impl ("ofdm_phy_test", cfg));
+		else if (cfg.m_type == wiflx::test::config::SC_PHY_TEST)
+			t.reset (test_factory.create_impl ("sc_phy_test", cfg));
+		else
+		{
+			WIFLX_LOG_ERROR("unknown test");
+			return -1;
+		}
+		t->start ();
 
-    ioc.run ();
-  }
-  catch (const std::exception &ex)
-  {
-    WIFLX_LOG_ERROR ("{}", ex.what());
-  }
+		wiflx::common::io_context ioc;
+		boost::asio::signal_set signals (ioc, SIGINT, SIGTERM);
+		signals.async_wait (
+			[&] (const boost::system::error_code &ec, int signal)
+				{
+					t->stop ();
+					ioc.stop ();
+				});
 
-  return 0;
+		ioc.run ();
+	}
+	catch (const std::exception &ex)
+	{
+		WIFLX_LOG_ERROR ("{}", ex.what());
+	}
+
+	return 0;
 }
