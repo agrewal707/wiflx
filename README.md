@@ -77,9 +77,9 @@ $ make -j $(nproc) install/strip
 PlutoSDR Firmware Build
 ----
 ```
-1. Download and install Xilinx Vivado SDK (Free WebPACK):
+1. Download and install Xilinx Vivado SDK.
 
-https://www.xilinx.com/member/forms/download/xef-vivado.html?filename=Xilinx_Vivado_SDK_Web_2019.1_0524_1430_Lin64.bin
+https://www.xilinx.com/member/forms/download/xef.html?filename=Xilinx_Unified_2021.2_1021_0703_Lin64.bin
 
 Reference: https://wiki.analog.com/university/tools/pluto/building_the_image
 
@@ -89,7 +89,7 @@ https://wiki.analog.com/university/tools/pluto/obtaining_the_sources
 
 $ cd ~/projects
 $ git clone https://github.com/analogdevicesinc/plutosdr-fw.git
-$ git checkout -b v0.32 v0.32
+$ git checkout -b v0.35 v0.35
 $ git submodule update --init --recursive
 
 3. Apply realtime linux patch
@@ -98,23 +98,30 @@ a. determine linux kernel version
 
 $ cd ~/projects/plutosdr-fw/linux
 $ make kernelversion
-4.19.0
+5.10.0
 
 b. Download and apply patch
 
 $ cd ~/tmp
-$ wget https://mirrors.edge.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patch-4.19-rt1.patch.gz
-$ gzip -d patch-4.19-rt1.patch.gz
+$ wget https://mirrors.edge.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10-rt17.tar.gz
+$ tar xvf patches-5.10-rt17.tar.gz
 $ cd -
-$ patch -p1 < ~/tmp/patch-4.19-rt1.patch
+$ ~/projects/wiflx/scripts/apply_patches ~/tmp/patches/series
 $ cd ..
 
 4. Setup environment variables for Xilinx toolchain (assumes it is installed
    in $HOME/opt)
 
 $ export CROSS_COMPILE=arm-linux-gnueabihf-
-$ export PATH=$PATH:$HOME/opt/Xilinx/SDK/2019.1/gnu/aarch32/lin/gcc-arm-linux-gnueabi/bin/
-$ export VIVADO_SETTINGS=$HOME/opt/Xilinx/Vivado/2019.1/settings64.sh
+$ export PATH=$PATH:$HOME/opt/Xilinx/SDK/2019.1/gnu/aarch32/lin/gcc-arm-linux-gnueabi/bin
+$ export VIVADO_SETTINGS=$HOME/opt/Xilinx/Vivado/2021.2/settings64.sh
+$ export ADI_IGNORE_VERSION_CHECK=1
+
+NOTE:
+"What we do is that we build HDL with 2021.1, but use the gcc toolchain from 2019.1."
+
+Reference: https://github.com/analogdevicesinc/plutosdr-fw/issues/70
+
 
 5. Configure kernel features
 
@@ -130,7 +137,13 @@ Device Drivers -> Network device support -> Universal TUN/TAP device driver supp
 - Enable NFS client
 File systems -> Network File Systems -> NFS client support. Select 'Y'.
 
-- Save config
+- Save config, create defconfig
+$ make -C linux ARCH=arm savedefconfig
+
+- Check changes against the default image
+$ diff -u ./linux/arch/arm/configs/zynq_pluto_defconfig linux/defconfig | less
+
+- And store them to the default file.
 $ cp linux/.config linux/arch/arm/configs/zynq_pluto_defconfig
 
 6. Configure userspace apps (optional)

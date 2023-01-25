@@ -16,6 +16,7 @@
 #ifndef WIFLX_COMMON_OBJECT_FACTORY_H
 #define WIFLX_COMMON_OBJECT_FACTORY_H
 
+#include <stdexcept>
 #include <unordered_map>
 #include <string>
 

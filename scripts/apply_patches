@@ -1,0 +1,23 @@
+#!/bin/bash
+
+if [ $# -lt 1 ]; then
+	echo "usage: apply_patches <series-file>"
+	exit 1
+fi
+
+PATCH_SERIES=$1
+PATCH_DIR=`dirname $PATCH_SERIES`
+PATCH_LIST=`cat $PATCH_SERIES | grep -v ^#`
+
+for p in $PATCH_LIST; do \
+	echo "applying $p"; \
+	if ! patch -p1 < $PATCH_DIR/$p ; then \
+		echo "!!!"
+		echo "FAILED TO APPLY: $p"; \
+		echo "!!!"
+		#exit 1
+	fi
+done
+
+
+

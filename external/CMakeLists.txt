@@ -25,7 +25,7 @@ if(${CMAKE_SYSTEM_PROCESSOR} MATCHES x86)
 ExternalProject_Add(libusb
   PREFIX libusb
 
-  URL https://github.com/libusb/libusb/releases/download/v1.0.22/libusb-1.0.22.tar.bz2
+  URL https://github.com/libusb/libusb/releases/download/v1.0.24/libusb-1.0.24.tar.bz2
 
   BUILD_IN_SOURCE 1
   UPDATE_COMMAND ""
@@ -34,7 +34,8 @@ ExternalProject_Add(libusb
   BUILD_COMMAND make
   INSTALL_COMMAND make install
 )
-file(GLOB_RECURSE FFTW_INSTALL_FILES
+file(GLOB_RECURSE LIBUSB_INSTALL_FILES
+  ${CMAKE_INSTALL_PREFIX}/include/libusb*
   ${CMAKE_INSTALL_PREFIX}/lib/libusb*
 )
 endif()
@@ -56,7 +57,7 @@ list(APPEND libxml2_configure_cmd
 ExternalProject_Add(libxml2
   PREFIX libusb
 
-  URL ftp://xmlsoft.org/libxml2/libxml2-2.9.9.tar.gz
+  URL ftp://xmlsoft.org/libxml2/libxml2-2.9.12.tar.gz
 
   BUILD_IN_SOURCE 1
   UPDATE_COMMAND ""
@@ -93,6 +94,7 @@ ExternalProject_Add(libconfig
   INSTALL_COMMAND make install
 )
 file(GLOB_RECURSE LIBCONFIG_INSTALL_FILES
+  ${CMAKE_INSTALL_PREFIX}/include/libconfig*
   ${CMAKE_INSTALL_PREFIX}/lib/libconfig*
 )
 
@@ -116,7 +118,7 @@ ExternalProject_Add(libiio
   PREFIX libiio
 
   GIT_REPOSITORY "https://github.com/analogdevicesinc/libiio.git"
-  GIT_TAG "v0.22"
+  GIT_TAG "v0.24"
 
   #PATCH_COMMAND patch < ${CMAKE_SOURCE_DIR}/libiio.patch
 
@@ -126,6 +128,8 @@ ExternalProject_Add(libiio
     -DCMAKE_POSITION_INDEPENDENT_CODE:BOOL=TRUE
     -DINSTALL_UDEV_RULE:BOOL=FALSE
     -DWITH_TESTS:BOOL=TRUE
+    -DHAVE_DNS_SD:BOOL=FALSE
+    -DWITH_AIO:BOOL=FALSE
 )
 file(GLOB_RECURSE LIBIIO_INSTALL_FILES
   ${CMAKE_INSTALL_PREFIX}/include/iio*
@@ -137,7 +141,7 @@ ExternalProject_Add(libad9361-iio
   PREFIX libad9361-iio
 
   GIT_REPOSITORY "https://github.com/analogdevicesinc/libad9361-iio.git"
-  GIT_TAG "f8003df8abbb4a6fb34f2a6340d3ce6c19d871b1"
+  GIT_TAG "43643ab0ef8a3fbdb6c7595f42842f534a291664"
 
   CMAKE_CACHE_ARGS
     -DCMAKE_TOOLCHAIN_FILE:PATH=${CMAKE_TOOLCHAIN_FILE}
@@ -174,7 +178,7 @@ endif()
 ExternalProject_Add(fftw
   PREFIX fftw
 
-  URL http://www.fftw.org/fftw-3.3.8.tar.gz
+  URL http://www.fftw.org/fftw-3.3.10.tar.gz
 
   BUILD_IN_SOURCE 1
   UPDATE_COMMAND ""
@@ -202,7 +206,7 @@ ExternalProject_Add(libfec
   PREFIX libfec
 
   GIT_REPOSITORY "https://github.com/HAMNET-Access-Protocol/libfec.git"
-  GIT_TAG "master"
+  GIT_TAG "b870f839438bba59dc4981ec0e21c60c4ee6e487"
 
   BUILD_IN_SOURCE 1
   UPDATE_COMMAND ""
@@ -277,72 +281,10 @@ ExternalProject_Add(soapyplutosdr
   DEPENDS libiio libad9361-iio soapysdr
 )
 
-if(${CMAKE_SYSTEM_PROCESSOR} MATCHES x86)
-ExternalProject_Add(uhd
-  PREFIX uhd
-
-  GIT_REPOSITORY "https://github.com/EttusResearch/uhd.git"
-  GIT_TAG "v4.1.0.5"
-
-  SOURCE_SUBDIR host
-
-  CMAKE_CACHE_ARGS
-    -DCMAKE_TOOLCHAIN_FILE:PATH=${CMAKE_TOOLCHAIN_FILE}
-    -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_INSTALL_PREFIX}
-
-  DEPENDS libusb
-)
-file(GLOB_RECURSE UHD_INSTALL_FILES
-  ${CMAKE_INSTALL_PREFIX}/include/uhd.h
-)
-
-ExternalProject_Add(soapyuhd
-  PREFIX soapyuhd
-
-  GIT_REPOSITORY "https://github.com/pothosware/SoapyUHD.git"
-  GIT_TAG "master"
-
-  CMAKE_CACHE_ARGS
-    -DCMAKE_TOOLCHAIN_FILE:PATH=${CMAKE_TOOLCHAIN_FILE}
-    -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_INSTALL_PREFIX}
-
-  DEPENDS uhd soapysdr
-)
-
-ExternalProject_Add(bladerf
-  PREFIX bladerf
-
-  GIT_REPOSITORY "https://github.com/Nuand/bladeRF.git"
-  GIT_TAG "2021.10"
-
-  SOURCE_SUBDIR host
-
-  CMAKE_CACHE_ARGS
-    -DCMAKE_TOOLCHAIN_FILE:PATH=${CMAKE_TOOLCHAIN_FILE}
-    -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_INSTALL_PREFIX}
-    -DINSTALL_UDEV_RULES:BOOL=FALSE
-
-  DEPENDS libusb
-)
-
-ExternalProject_Add(soapybladerf
-  PREFIX soapybladerf
-
-  GIT_REPOSITORY "https://github.com/pothosware/SoapyBladeRF.git"
-  GIT_TAG "master"
-
-  CMAKE_CACHE_ARGS
-    -DCMAKE_TOOLCHAIN_FILE:PATH=${CMAKE_TOOLCHAIN_FILE}
-    -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_INSTALL_PREFIX}
-
-  DEPENDS bladerf soapysdr
-)
-endif()
-
 ExternalProject_Add(json
   PREFIX json
 
-  URL "https://github.com/nlohmann/json/archive/v3.9.1.tar.gz"
+  URL "https://github.com/nlohmann/json/archive/v3.11.2.tar.gz"
 
   CMAKE_CACHE_ARGS
     -DCMAKE_TOOLCHAIN_FILE:PATH=${CMAKE_TOOLCHAIN_FILE}
@@ -353,8 +295,8 @@ ExternalProject_Add(json
 if(${CMAKE_SYSTEM_PROCESSOR} MATCHES x86)
 ExternalProject_Add(boost
   PREFIX boost
-  URL "https://boostorg.jfrog.io/artifactory/main/release/1.76.0/source/boost_1_76_0.tar.bz2"
-  URL_HASH SHA256=f0397ba6e982c4450f27bf32a2a83292aba035b827a5623a14636ea583318c41
+  URL "https://boostorg.jfrog.io/artifactory/main/release/1.81.0/source/boost_1_81_0.tar.bz2"
+  URL_HASH SHA256=71feeed900fbccca04a3b4f2f84a7c217186f28a940ed8b7ed4725986baf99fa
   BUILD_IN_SOURCE 1
   UPDATE_COMMAND ""
   PATCH_COMMAND echo "using gcc : ${CMAKE_SYSTEM_PROCESSOR} : ${CMAKE_CXX_COMPILER} $<SEMICOLON>" > user-config.jam
@@ -379,8 +321,8 @@ ExternalProject_Add(boost
 else()
 ExternalProject_Add(boost
   PREFIX boost
-  URL "https://boostorg.jfrog.io/artifactory/main/release/1.76.0/source/boost_1_76_0.tar.bz2"
-  URL_HASH SHA256=f0397ba6e982c4450f27bf32a2a83292aba035b827a5623a14636ea583318c41
+  URL "https://boostorg.jfrog.io/artifactory/main/release/1.81.0/source/boost_1_81_0.tar.bz2"
+  URL_HASH SHA256=71feeed900fbccca04a3b4f2f84a7c217186f28a940ed8b7ed4725986baf99fa
   BUILD_IN_SOURCE 1
   UPDATE_COMMAND ""
   PATCH_COMMAND echo "using gcc : ${CMAKE_SYSTEM_PROCESSOR} : ${CMAKE_CXX_COMPILER} $<SEMICOLON>" > user-config.jam
@@ -406,7 +348,7 @@ ExternalProject_Add(quill
   PREFIX quill
 
   GIT_REPOSITORY "https://github.com/odygrd/quill.git"
-  GIT_TAG "v2.0.1"
+  GIT_TAG "v2.6.0"
 
   CMAKE_CACHE_ARGS
     -DCMAKE_TOOLCHAIN_FILE:PATH=${CMAKE_TOOLCHAIN_FILE}
@@ -427,7 +369,7 @@ list(APPEND protobuf_cmake_args
 ExternalProject_Add(protobuf
   PREFIX protobuf
 
-  URL "https://github.com/protocolbuffers/protobuf/releases/download/v3.14.0/protobuf-cpp-3.14.0.tar.gz"
+  URL "https://github.com/protocolbuffers/protobuf/releases/download/v21.12/protobuf-cpp-3.21.12.tar.gz"
 
   CMAKE_CACHE_ARGS ${protobuf_cmake_args}
 
@@ -439,13 +381,88 @@ file(GLOB_RECURSE PROTOBUF_INSTALL_FILES
   ${CMAKE_INSTALL_PREFIX}/lib/libprotobuf*
 )
 
+if(${CMAKE_SYSTEM_PROCESSOR} MATCHES x86)
+ExternalProject_Add(uhd
+  PREFIX uhd
+
+  GIT_REPOSITORY "https://github.com/EttusResearch/uhd.git"
+  GIT_TAG "v4.1.0.6"
+
+  SOURCE_SUBDIR host
+
+  CMAKE_CACHE_ARGS
+    -DCMAKE_TOOLCHAIN_FILE:PATH=${CMAKE_TOOLCHAIN_FILE}
+    -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_INSTALL_PREFIX}
+
+  DEPENDS libusb boost
+)
+file(GLOB_RECURSE UHD_INSTALL_FILES
+  ${CMAKE_INSTALL_PREFIX}/include/uhd.h
+  ${CMAKE_INSTALL_PREFIX}/lib/libuhd*
+)
+
+ExternalProject_Add(soapyuhd
+  PREFIX soapyuhd
+
+  GIT_REPOSITORY "https://github.com/pothosware/SoapyUHD.git"
+  GIT_TAG "master"
+
+  CMAKE_CACHE_ARGS
+    -DCMAKE_TOOLCHAIN_FILE:PATH=${CMAKE_TOOLCHAIN_FILE}
+    -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_INSTALL_PREFIX}
+
+  DEPENDS uhd soapysdr
+)
+
+ExternalProject_Add(bladerf
+  PREFIX bladerf
+
+  GIT_REPOSITORY "https://github.com/Nuand/bladeRF.git"
+  GIT_TAG "2022.11"
+
+  SOURCE_SUBDIR host
+
+  CMAKE_CACHE_ARGS
+    -DCMAKE_TOOLCHAIN_FILE:PATH=${CMAKE_TOOLCHAIN_FILE}
+    -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_INSTALL_PREFIX}
+    -DINSTALL_UDEV_RULES:BOOL=FALSE
+
+  DEPENDS libusb
+)
+file(GLOB_RECURSE BLADERF_INSTALL_FILES
+  ${CMAKE_INSTALL_PREFIX}/include/bladeRF*.h
+  ${CMAKE_INSTALL_PREFIX}/include/libbladeRF*.h
+  ${CMAKE_INSTALL_PREFIX}/libbladeRF*
+)
+
+ExternalProject_Add(soapybladerf
+  PREFIX soapybladerf
+
+  GIT_REPOSITORY "https://github.com/pothosware/SoapyBladeRF.git"
+  GIT_TAG "master"
+
+  CMAKE_CACHE_ARGS
+    -DCMAKE_TOOLCHAIN_FILE:PATH=${CMAKE_TOOLCHAIN_FILE}
+    -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_INSTALL_PREFIX}
+
+  DEPENDS bladerf soapysdr
+)
+endif()
+
+
 set_property(DIRECTORY PROPERTY ADDITIONAL_MAKE_CLEAN_FILES
+  ${LIBUSB_INSTALL_FILES}
   ${CMAKE_INSTALL_PREFIX}/include/libusb-1.0
+  ${LIBCONFIG_INSTALL_FILES}
   ${TRACY_INSTALL_FILES}
   ${LIBIIO_INSTALL_FILES}
   ${LIBAD9361_IIO_INSTALL_FILES}
   ${FFTW_INSTALL_FILES}
   ${LIBFEC_INSTALL_FILES}
+  ${UHD_INSTALL_FILES}
+  ${CMAKE_INSTALL_PREFIX}/include/uhd
+  ${CMAKE_INSTALL_PREFIX}/lib/uhd
+  ${BLADERF_INSTALL_FILES}
   ${CMAKE_INSTALL_PREFIX}/include/liquid
   ${LIQUID_DSP_INSTALL_FILES}
   ${CMAKE_INSTALL_PREFIX}/include/SoapySDR
@@ -459,4 +476,6 @@ set_property(DIRECTORY PROPERTY ADDITIONAL_MAKE_CLEAN_FILES
   ${CMAKE_INSTALL_PREFIX}/include/google
   ${PROTOBUF_INSTALL_FILES}
   ${CMAKE_INSTALL_PREFIX}/lib/cmake
+  ${CMAKE_INSTALL_PREFIX}/lib/pkgconfig
+  ${CMAKE_INSTALL_PREFIX}/tracy
 )

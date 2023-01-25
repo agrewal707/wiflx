@@ -21,8 +21,6 @@ namespace common {
 
 void log_init (const std::string &logfile)
 {
-  quill::enable_console_colours();
-
   auto* file_handler = quill::stdout_handler();
   if (!logfile.empty())
     file_handler = quill::file_handler(logfile, "w");
@@ -32,7 +30,10 @@ void log_init (const std::string &logfile)
     "%H:%M:%S.%Qus", // timestamp format
     quill::Timezone::GmtTime); // timestamp's timezone
 
-  quill::set_default_logger_handler(file_handler);
+  quill::Config cfg;
+  cfg.enable_console_colours = true;
+  cfg.default_handlers.emplace_back(file_handler);
+  quill::configure(cfg);
 
   quill::start();
 }

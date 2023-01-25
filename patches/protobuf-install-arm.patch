@@ -1,14 +1,14 @@
---- protobuf-config.cmake.orig	2021-03-14 10:44:23.706358699 -0400
-+++ protobuf-config.cmake	2021-01-10 19:45:24.167906983 -0500
-@@ -129,9 +129,9 @@ function(protobuf_generate)
+--- protobuf-config.cmake.orig	2023-01-25 15:33:56.202168989 -0500
++++ protobuf-config.cmake	2023-01-25 15:34:19.058513933 -0500
+@@ -146,9 +146,9 @@ function(protobuf_generate)
  
      add_custom_command(
        OUTPUT ${_generated_srcs}
--      COMMAND  protobuf::protoc
-+      COMMAND  ${PROTOBUF_PROTOC_EXEC}
-       ARGS --${protobuf_generate_LANGUAGE}_out ${_dll_export_decl}${protobuf_generate_PROTOC_OUT_DIR} ${_plugin} ${_protobuf_include_path} ${_abs_file}
+-      COMMAND protobuf::protoc
++      COMMAND ${PROTOBUF_PROTOC_EXEC}
+       ARGS ${protobuf_generate_PROTOC_OPTIONS} --${protobuf_generate_LANGUAGE}_out ${_plugin_options}:${protobuf_generate_PROTOC_OUT_DIR} ${_plugin} ${_protobuf_include_path} ${_abs_file}
 -      DEPENDS ${_abs_file} protobuf::protoc
-+      DEPENDS ${_abs_file}
-       COMMENT "Running ${protobuf_generate_LANGUAGE} protocol buffer compiler on ${_proto}"
++      DEPENDS ${_abs_file} ${PROTOBUF_PROTOC_EXEC}
+       COMMENT ${_comment}
        VERBATIM )
    endforeach()
