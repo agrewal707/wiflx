@@ -5,6 +5,9 @@
  * Copyright (C) 2014 IABG mbH
  * Author: Michael Feilen <feilen_at_iabg.de>
  **/
+#define _GNU_SOURCE
+#include <pthread.h>
+#include <sched.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
@@ -298,6 +301,43 @@ struct config
   bool sc;
 };
 
+void set_thread_param (pthread_t th, const char *name, int policy, int priority, int cpu)
+{
+  pthread_setname_np (th, name);
+
+  if (-1 != cpu)
+  {
+    cpu_set_t cpu_set;
+    CPU_ZERO(&cpu_set);
+    CPU_SET(cpu, &cpu_set);
+    if (pthread_setaffinity_np (th, sizeof(cpu_set_t), &cpu_set))
+      fprintf(stderr, "failed to set cpu affinity on %s\n", name);
+  }
+
+  if (-1 != policy)
+  {
+    struct sched_param p;
+    p.sched_priority = priority;
+    if (pthread_setschedparam(th, policy, &p))
+      fprintf(stderr, "failed to set policy/priority on %s\n", name);
+  }
+
+  {
+    cpu_set_t cpu_set;
+    CPU_ZERO(&cpu_set);
+    pthread_getaffinity_np(th, sizeof(cpu_set_t), &cpu_set);
+    fprintf(stdout, "%s thread CPU mask: ", name);
+    for (int i=0; i < 4; ++i)
+      fprintf(stdout, "%d\n",CPU_ISSET(i, &cpu_set));
+  }
+
+  {
+    struct sched_param p;
+    if (!pthread_getschedparam(th, &policy, &p))
+      fprintf(stderr, "%s thread, policy %d, priority %d", name, policy, p.sched_priority);
+  }
+}
+
 void usage (const char *name, FILE *f, int ret, const char *info)
 {
   fprintf(f, "Usage: %s [options]\n", name);
@@ -318,6 +358,20 @@ void usage (const char *name, FILE *f, int ret, const char *info)
   if (info)
     fprintf(f, "Error while processing '%s'\n", info);
   exit(ret);
+}
+
+// static callback function
+static int rx_callback(unsigned char *  _header,
+                    int              _header_valid,
+                    unsigned char *  _payload,
+                    unsigned int     _payload_len,
+                    int              _payload_valid,
+                    framesyncstats_s _stats,
+                    void *           _userdata)
+{
+    printf("*** callback invoked ***\n");
+    framesyncstats_print(&_stats);
+    return 1;
 }
 
 int main (int C, char **V)
@@ -498,11 +552,27 @@ int main (int C, char **V)
   float complex buf_tx[tx_buf_size];
   float complex buf_rx[rx_buf_size];
 
+  sc_framegen fg;
+  sc_framesync fs;
+
   if (cfg.cw) {
     cw_write(buf_tx, tx_buf_size, 0.75, 16e3, txcfg.fs_hz);
+  } else if (cfg.sc) {
+    if (cfg.txen) {
+      fg = sc_framegen_create();
+      sc_framegen_execute (fg, NULL, NULL, buf_tx);
+      sc_framegen_print (fg);
+      sc_framegen_destroy(fg);
+      tx_buf_size = LIQUID_FRAME64_LEN;
+    }
+
+    if (cfg.rxen) {
+     fs = sc_framesync_create (rx_callback, NULL);
+     sc_framesync_print (fs);
+    }
   }
- // else if (cfg.sc)
-//    sc_framegen64 (buf_tx, tx_buf_size);
+
+  //set_thread_param (pthread_self(), "PHY", SCHED_FIFO, 1, 0);
  
   debug_tx = windowcf_create (DEBUG_BUFFER_LEN);
   debug_rx = windowcf_create (DEBUG_BUFFER_LEN);
@@ -539,6 +609,7 @@ int main (int C, char **V)
       }
       //printf("i: %d, nbytes_rx: %ld, samples: %ld\n", i, nbytes_rx, nbytes_rx/iio_device_get_sample_size(rx));
       windowcf_write (debug_rx, buf_rx, nbytes_rx/iio_device_get_sample_size(rx));
+      sc_framesync_execute (fs, buf_rx, i);
     }
 
     if (cfg.txen) { // TX WRITE: Get pointers to TX buf and write IQ to TX buf port 0
