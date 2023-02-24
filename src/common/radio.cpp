@@ -54,6 +54,11 @@ radio::radio (const config::radio &cfg, pipebuf_cf &rxbuff, pipebuf_cf &txbuff):
 		std::runtime_error ("SoapySDR::Device::make failed");
 	}
 
+  if (args["driver"] == "plutosdr" && !cfg.fir_filter_file.empty())
+  {
+    pluto_load_fir_filter (cfg.fir_filter_file.c_str());
+  }
+
   // RX
   m_sdr->setBandwidth (SOAPY_SDR_RX, 0, cfg.rx_analog_bandwidth);
   m_sdr->setSampleRate (SOAPY_SDR_RX, 0, cfg.sampling_frequency);
@@ -90,18 +95,7 @@ radio::radio (const config::radio &cfg, pipebuf_cf &rxbuff, pipebuf_cf &txbuff):
   m_sdr->setSampleRate (SOAPY_SDR_TX, 0, cfg.sampling_frequency);
   m_sdr->setFrequency (SOAPY_SDR_TX, 0, cfg.txfreq);
   m_sdr->setGain (SOAPY_SDR_TX, 0, cfg.txgain);
-
-  if (args["driver"] == "plutosdr" && !cfg.fir_filter_file.empty())
-  {
-    auto rate = cfg.sampling_frequency;
-    if (rate < 25e6/(12*4))
-    {
-      // decimation/interpolation on FPGA is required
-      rate *= 8;
-    }
-    pluto_load_fir_filter (cfg.fir_filter_file.c_str(), rate);
-  }
-
+ 
   SoapySDR::Kwargs txargs =
   {
     {"bufflen", std::to_string(cfg.tx_buf_size) }
@@ -283,84 +277,36 @@ void radio::stats ()
   WIFLX_LOG_DEBUG ("totalTxSamples: {:d}\n", m_total_tx_samples);
 }
 
-void radio::pluto_load_fir_filter (const char *filename, long long rate)
+void radio::pluto_load_fir_filter (const char *filename)
 {
   struct iio_device *dev = (struct iio_device*) (m_sdr->getNativeDeviceHandle());
   if (!dev)
     throw std::runtime_error ("invalid phy device");
-
-	auto *chan = iio_device_find_channel(dev, "voltage0", true);
-	if (!chan)
-    throw std::runtime_error ("failed to get channel");
-
-  long long current_rate;
-	auto ret = iio_channel_attr_read_longlong(chan, "sampling_frequency", &current_rate);
-	if (ret < 0)
-    throw std::runtime_error ("failed to get current sampling rate");
-
-  int enable = 0;
-	ret = ad9361_get_trx_fir_enable(dev, &enable);
-	if (ret < 0)
-    throw std::runtime_error ("failed to get trx fir enable");
-
-	if (enable)
-  {
-		if (current_rate <= (25000000 / 12))
-			iio_channel_attr_write_longlong(chan, "sampling_frequency", 3000000);
-
-		ret = ad9361_set_trx_fir_enable(dev, false);
-		if (ret < 0)
-      throw std::runtime_error ("failed to disable trx fir");
-	}
 
   const auto fir = common::get_file_content (filename);
   const auto lines = std::count (fir.begin(), fir.end(), '\n');
   int taps = lines - 10; // 10 lines for headers
   WIFLX_LOG_DEBUG("fir taps {}", taps);
 
-	ret = iio_device_attr_write_raw(dev, "filter_fir_config", fir.data(), fir.size());
-	if (ret < 0)
-    throw std::runtime_error ("failed to set trx fir filter");
+  auto ret = iio_device_attr_write_raw(dev, "filter_fir_config", fir.data(), fir.size());
+  if (ret < 0)
+    throw std::runtime_error ("failed to load fir filter");
 
-	if (rate <= (25000000 / 12))
-  {
-		char readbuf[100];
-		ret = iio_device_attr_read(dev, "tx_path_rates", readbuf, sizeof(readbuf));
-		if (ret < 0)
-			throw std::runtime_error ("failed to get tx_path_rates");
+  auto *chan_rx = iio_device_find_channel(dev, "voltage0", false);
+  if (!chan_rx)
+    throw std::runtime_error ("failed to get RX channel");
 
-    int dacrate, txrate;
-		ret = sscanf(readbuf, "BBPLL:%*d DAC:%d T2:%*d T1:%*d TF:%*d TXSAMP:%d", &dacrate, &txrate);
-		if (ret != 2)
-      throw std::runtime_error ("failed to get dac,sample rates");
-		if (txrate == 0)
-      throw std::runtime_error ("invalid txrate");
+  ret = iio_channel_attr_write_longlong(chan_rx, "filter_fir_en", 1);
+  if (ret < 0)
+    throw std::runtime_error ("failed to enable fir filter on RX channel");
 
-		int max = (dacrate / txrate) * 16;
-		if (max < taps)
-			iio_channel_attr_write_longlong(chan, "sampling_frequency", 3000000);
+  auto *chan_tx = iio_device_find_channel(dev, "voltage0", true);
+  if (!chan_tx)
+    throw std::runtime_error ("failed to get TX channel");
 
-		ret = ad9361_set_trx_fir_enable(dev, true);
-		if (ret < 0)
-			throw std::runtime_error ("failed to enable trx fir filter");
-
-		ret = iio_channel_attr_write_longlong(chan, "sampling_frequency", rate);
-		if (ret < 0)
-    {
-      WIFLX_LOG_DEBUG ("rate {:d}", rate);
-			throw std::runtime_error ("failed to set sampling rate");
-    }
-	}
-  else
-  {
-		ret = iio_channel_attr_write_longlong(chan, "sampling_frequency", rate);
-		if (ret < 0)
-      throw std::runtime_error ("failed to set sampling rate");
-
-		ret = ad9361_set_trx_fir_enable(dev, true);
-		if (ret < 0)
-			throw std::runtime_error ("failed to enable trx fir filter");
-	}
+  ret = iio_channel_attr_write_longlong(chan_tx, "filter_fir_en", 1);
+  if (ret < 0)
+    throw std::runtime_error ("failed to enable fir filter on RX channel");
 }
 
 #ifdef WIFLX_RADIO_DEBUG_SAMPLES

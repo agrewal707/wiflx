@@ -21,7 +21,7 @@ include_directories(${LIBFEC_INCLUDE_DIRS})
 link_directories(${LIBFEC_LIBRARY_DIRS})
 
 # build flags
-add_definitions (-std=c++17 -Werror)
+add_definitions (-std=c++17 -Werror -Wno-deprecated -Wno-deprecated-declarations)
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DWIFLX_TRACE")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fvisibility-inlines-hidden")
 set(CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS_MINSIZEREL} -fvisibility-inlines-hidden")

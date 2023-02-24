@@ -221,7 +221,7 @@ cd ~<user>/projects/wiflx/tests/host
 . ./init.sh
 ./start.sh rm2 tap2 172.16.20.3/24 wiflx_rm rm2_1000khz.cfg
 
-5.) Ping
+5. Ping
 
 ip netns exec ap ping 172.16.20.2 -s 1500&
 ip netns exec ap ping 172.16.20.3 -s 1500&

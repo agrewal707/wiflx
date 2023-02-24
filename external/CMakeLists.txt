@@ -295,8 +295,8 @@ ExternalProject_Add(json
 if(${CMAKE_SYSTEM_PROCESSOR} MATCHES x86)
 ExternalProject_Add(boost
   PREFIX boost
-  URL "https://boostorg.jfrog.io/artifactory/main/release/1.81.0/source/boost_1_81_0.tar.bz2"
-  URL_HASH SHA256=71feeed900fbccca04a3b4f2f84a7c217186f28a940ed8b7ed4725986baf99fa
+  URL "https://boostorg.jfrog.io/artifactory/main/release/1.76.0/source/boost_1_76_0.tar.bz2"
+  URL_HASH SHA256=f0397ba6e982c4450f27bf32a2a83292aba035b827a5623a14636ea583318c41
   BUILD_IN_SOURCE 1
   UPDATE_COMMAND ""
   PATCH_COMMAND echo "using gcc : ${CMAKE_SYSTEM_PROCESSOR} : ${CMAKE_CXX_COMPILER} $<SEMICOLON>" > user-config.jam
@@ -321,8 +321,8 @@ ExternalProject_Add(boost
 else()
 ExternalProject_Add(boost
   PREFIX boost
-  URL "https://boostorg.jfrog.io/artifactory/main/release/1.81.0/source/boost_1_81_0.tar.bz2"
-  URL_HASH SHA256=71feeed900fbccca04a3b4f2f84a7c217186f28a940ed8b7ed4725986baf99fa
+  URL "https://boostorg.jfrog.io/artifactory/main/release/1.76.0/source/boost_1_76_0.tar.bz2"
+  URL_HASH SHA256=f0397ba6e982c4450f27bf32a2a83292aba035b827a5623a14636ea583318c41
   BUILD_IN_SOURCE 1
   UPDATE_COMMAND ""
   PATCH_COMMAND echo "using gcc : ${CMAKE_SYSTEM_PROCESSOR} : ${CMAKE_CXX_COMPILER} $<SEMICOLON>" > user-config.jam

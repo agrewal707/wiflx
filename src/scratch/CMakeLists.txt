@@ -19,9 +19,11 @@ link_directories(
 )
 
 # build
-add_executable (ad9361_iiostream ad9361-iiostream.c)
+add_executable (ad9361_iiostream ad9361-iiostream.c cw.c sc_framegen.c sc_framesync.c)
 target_link_libraries (ad9361_iiostream
   ${LIQUID_DSP_STATIC_LIBRARIES}
+  ${LIBFEC_STATIC_LIBRARIES}
+  ${FFTW3F_STATIC_LIBRARIES}
   -liio
   -lad9361
   -lm
