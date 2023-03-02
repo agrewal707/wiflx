@@ -8,7 +8,7 @@
 //
 
 // frame length in samples
-#define LIQUID_FRAME64_LEN (1440)
+#define WIFLX_SC_LIQUID_FRAME64_LEN (720*2)
 
 typedef struct sc_framegen_s * sc_framegen;
 

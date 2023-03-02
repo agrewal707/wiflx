@@ -299,6 +299,9 @@ struct config
   bool txen;
   bool cw;
   bool sc;
+  bool noise;
+  float noise_floor;
+  unsigned int M;
 };
 
 void set_thread_param (pthread_t th, const char *name, int policy, int priority, int cpu)
@@ -353,6 +356,7 @@ void usage (const char *name, FILE *f, int ret, const char *info)
      "  --rxbw FLOAT         RF RX bandwidth (Hz)\n"
      "  --txbw FLOAT         RF TX bandwidth (Hz)\n"
      "  --fs FLOAT           Sampling rate (Hz)\n"
+     "  --M UNSIGNED         Decimation factor\n"
      "  -d                   show debug logs\n"
      );
   if (info)
@@ -400,6 +404,9 @@ int main (int C, char **V)
   cfg.txen = false;
   cfg.cw = false;
   cfg.sc = false;
+  cfg.noise = false;
+  cfg.noise_floor = -60.0f;
+  cfg.M = 1;
 
   int i = 0;
 
@@ -435,7 +442,12 @@ int main (int C, char **V)
       cfg.cw = true;
     else if (!strcmp(V[i], "-sc"))
       cfg.sc = true;
-    else if (!strcmp(V[i], "-rxen"))
+    else if (!strcmp(V[i], "--noise") && i+1 < C) {
+      cfg.noise = true;
+      cfg.noise_floor = atof(V[++i]);
+   }else if (!strcmp(V[i], "--M") && i+1 < C) {
+      cfg.M = atoi(V[++i]);
+   }else if (!strcmp(V[i], "-rxen"))
       cfg.rxen = true;
     else if (!strcmp(V[i], "-txen"))
       cfg.txen = true;
@@ -528,8 +540,8 @@ int main (int C, char **V)
   iio_channel_enable(tx0_i);
   iio_channel_enable(tx0_q);
 
-  int tx_buf_size = 2048;
-  int rx_buf_size = 2048;
+  int tx_buf_size = 1440;
+  int rx_buf_size = 1440;
   printf("* Creating non-cyclic IIO buffers with 1 MiS\n");
   rxbuf = iio_device_create_buffer(rx, rx_buf_size, false);
   if (!rxbuf) {
@@ -550,10 +562,13 @@ int main (int C, char **V)
 	iio_channel_attr_write_bool(chn, "powerdown", false);
 
   float complex buf_tx[tx_buf_size];
-  float complex buf_rx[rx_buf_size];
+  //float complex buf_rx[rx_buf_size];
 
   sc_framegen fg;
   sc_framesync fs;
+
+  for (i = 0; i < tx_buf_size; ++i)
+    buf_tx[i] = 0;
 
   if (cfg.cw) {
     cw_write(buf_tx, tx_buf_size, 0.75, 16e3, txcfg.fs_hz);
@@ -563,7 +578,7 @@ int main (int C, char **V)
       sc_framegen_execute (fg, NULL, NULL, buf_tx);
       sc_framegen_print (fg);
       sc_framegen_destroy(fg);
-      tx_buf_size = LIQUID_FRAME64_LEN;
+      tx_buf_size = WIFLX_SC_LIQUID_FRAME64_LEN;
     }
 
     if (cfg.rxen) {
@@ -572,10 +587,23 @@ int main (int C, char **V)
     }
   }
 
+  if (cfg.noise) {
+    float nstd  = powf(10.0f, cfg.noise_floor/20.0f); // noise std. dev.
+    for (i = 0; i < tx_buf_size; ++i)
+      buf_tx[i] += nstd*( randnf() + _Complex_I*randnf())*M_SQRT1_2;
+  }
+
   //set_thread_param (pthread_self(), "PHY", SCHED_FIFO, 1, 0);
  
   debug_tx = windowcf_create (DEBUG_BUFFER_LEN);
   debug_rx = windowcf_create (DEBUG_BUFFER_LEN);
+
+  // FIR decimation filter
+  firdecim_crcf decim;
+  if (cfg.M > 1) {
+    decim = firdecim_crcf_create_kaiser(cfg.M, 7, 80.0f);
+    firdecim_crcf_set_scale(decim, 1.0f/(float)cfg.M);
+  }
 
   printf("* Starting IO streaming (press CTRL+C to cancel)\n");
   while (!stop)
@@ -601,15 +629,27 @@ int main (int C, char **V)
       // READ: Get pointers to RX buf and read IQ from RX buf port 0
       p_inc = iio_buffer_step(rxbuf);
       p_end = iio_buffer_end(rxbuf);
-      for (p_dat = (char *)iio_buffer_first(rxbuf, rx0_i); i < rx_buf_size && p_dat < p_end; p_dat += p_inc) {
+      float complex x[cfg.M];
+      float complex y;
+      for (p_dat = (char *)iio_buffer_first(rxbuf, rx0_i); p_dat < p_end; p_dat += p_inc) {
         const int16_t _i = ((int16_t*)p_dat)[0]; // Real (I)
         const int16_t _q = ((int16_t*)p_dat)[1]; // Imag (Q)
-        buf_rx[i++] = _i / 2048.0f + I * _q / 2048.0f;
-        //buf_rx[i++] = _i / 512.0f + I * _q / 512.0f;
+        x[i++] = _i / 2048.0f + I * _q / 2048.0f;
+        //x[i++] = _i / 512.0f + I * _q / 512.0f;
+        if (cfg.M > 1) {
+          if (i == cfg.M) {
+            firdecim_crcf_execute(decim, x, &y);
+            sc_framesync_execute (fs, &y, 1);
+            windowcf_write (debug_rx, x, cfg.M);
+            i = 0;
+          }
+        } else {
+          sc_framesync_execute (fs, x, 1);
+          windowcf_write (debug_rx, x, 1);
+          i = 0;
+        }
       }
       //printf("i: %d, nbytes_rx: %ld, samples: %ld\n", i, nbytes_rx, nbytes_rx/iio_device_get_sample_size(rx));
-      windowcf_write (debug_rx, buf_rx, nbytes_rx/iio_device_get_sample_size(rx));
-      sc_framesync_execute (fs, buf_rx, i);
     }
 
     if (cfg.txen) { // TX WRITE: Get pointers to TX buf and write IQ to TX buf port 0
@@ -623,6 +663,8 @@ int main (int C, char **V)
         //((int16_t*)p_dat)[1] = 0 << 4; // Imag (Q)
         ((int16_t*)p_dat)[0] = (int16_t)(creal(buf_tx[i]) * 8192.0f); // Real (I)
         ((int16_t*)p_dat)[1] = (int16_t)(cimag(buf_tx[i]) * 8192.0f); // Image (Q)
+        //((int16_t*)p_dat)[0] = (int16_t)(creal(buf_tx[i]) * 16383.0f); // Real (I)
+        //((int16_t*)p_dat)[1] = (int16_t)(cimag(buf_tx[i]) * 16383.0f); // Image (Q)
         //((int16_t*)p_dat)[0] = (int16_t)(creal(buf_tx[i]) * 32767.0f); // Real (I)
         //((int16_t*)p_dat)[1] = (int16_t)(cimag(buf_tx[i]) * 32767.0f); // Image (Q)
         ++i;

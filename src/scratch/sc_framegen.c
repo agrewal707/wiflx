@@ -44,6 +44,7 @@ struct sc_framegen_s {
     float complex   payload_tx[630];    // modulated payload symbols with pilots
     unsigned int    m;                  // filter delay (symbols)
     float           beta;               // filter excess bandwidth factor
+    unsigned int    k;                  // samples per symbol
     firinterp_crcf  interp;             // pulse-shaping filter/interpolator
 };
 
@@ -53,6 +54,7 @@ sc_framegen sc_framegen_create()
     sc_framegen q = (sc_framegen) malloc(sizeof(struct sc_framegen_s));
     q->m    = 7;
     q->beta = 0.3f;
+    q->k = 2;
 
     unsigned int i;
 
@@ -79,7 +81,7 @@ sc_framegen sc_framegen_create()
     assert( qpilotgen_get_frame_len(q->pilotgen)==630 );
 
     // create pulse-shaping filter (k=2)
-    q->interp = firinterp_crcf_create_prototype(LIQUID_FIRFILT_ARKAISER,2,q->m,q->beta,0);
+    q->interp = firinterp_crcf_create_prototype(LIQUID_FIRFILT_ARKAISER,q->k,q->m,q->beta,0);
 
     // return main object
     return q;
@@ -114,7 +116,7 @@ int sc_framegen_destroy(sc_framegen _q)
 // print sc_framegen object internals
 int sc_framegen_print(sc_framegen _q)
 {
-    float eta = (float) (8*(64 + 8)) / (float) (LIQUID_FRAME64_LEN/2);
+    float eta = (float) (8*(64 + 8)) / (float) (WIFLX_SC_LIQUID_FRAME64_LEN/_q->k);
     printf("sc_framegen [m=%u, beta=%4.2f]:\n", _q->m, _q->beta);
     printf("  preamble/etc.\n");
     printf("    * ramp/up symbols       :   %3u\n", _q->m);
@@ -133,7 +135,7 @@ int sc_framegen_print(sc_framegen _q)
     printf("    * payload symbols       :   %3u\n", 600);
     printf("    * pilot symbols         :   %3u\n", 30);
     printf("  summary\n");
-    printf("    * total symbols         :   %3u\n", LIQUID_FRAME64_LEN/2);
+    printf("    * total symbols         :   %3u\n", WIFLX_SC_LIQUID_FRAME64_LEN/_q->k);
     printf("    * spectral efficiency   :   %6.4f b/s/Hz\n", eta);
     return LIQUID_OK;
 }
@@ -142,7 +144,7 @@ int sc_framegen_print(sc_framegen _q)
 //  _q          :   frame generator object
 //  _header     :   8-byte header data, NULL for random
 //  _payload    :   64-byte payload data, NULL for random
-//  _frame      :   output frame samples [size: LIQUID_FRAME64_LEN x 1]
+//  _frame      :   output frame samples [size: WIFLX_SC_LIQUID_FRAME64_LEN x 1]
 int sc_framegen_execute(sc_framegen      _q,
                        unsigned char * _header,
                        unsigned char * _payload,
@@ -170,22 +172,22 @@ int sc_framegen_execute(sc_framegen      _q,
     // p/n sequence
     for (i=0; i<64; i++) {
         firinterp_crcf_execute(_q->interp, _q->pn_sequence[i], &_frame[n]);
-        n+=2;
+        n+=_q->k;
     }
 
     // frame payload
     for (i=0; i<630; i++) {
         firinterp_crcf_execute(_q->interp, _q->payload_tx[i], &_frame[n]);
-        n+=2;
+        n+=_q->k;
     }
 
     // interpolator settling
-    for (i=0; i<2*_q->m + 2 + 10; i++) {
+    for (i=0; i<_q->k*_q->m + 2 + 10; i++) {
         firinterp_crcf_execute(_q->interp, 0.0f, &_frame[n]);
-        n+=2;
+        n+=_q->k;
     }
 
-    assert(n==LIQUID_FRAME64_LEN);
+    assert(n==WIFLX_SC_LIQUID_FRAME64_LEN);
     return LIQUID_OK;
 }
 

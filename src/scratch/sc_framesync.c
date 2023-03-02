@@ -72,6 +72,7 @@ struct sc_framesync_s {
     // synchronizer objects
     unsigned int        m;          // filter delay (symbols)
     float               beta;       // filter excess bandwidth factor
+    unsigned int        k;          // samples per symbol
     qdetector_cccf      detector;   // pre-demod detector
     float               tau_hat;    // fractional timing offset estimate
     float               dphi_hat;   // carrier frequency offset estimate
@@ -126,6 +127,7 @@ sc_framesync sc_framesync_create(framesync_callback _callback,
     q->userdata = _userdata;
     q->m        = 7;    // filter delay (symbols)
     q->beta     = 0.3f; // excess bandwidth factor
+    q->k        = 2;
 
     unsigned int i;
 
@@ -138,18 +140,17 @@ sc_framesync sc_framesync_create(framesync_callback _callback,
     msequence_destroy(ms);
 
     // create frame detector
-    unsigned int k    = 2;    // samples/symbol
-    q->detector = qdetector_cccf_create_linear(q->preamble_pn, 64, LIQUID_FIRFILT_ARKAISER, k, q->m, q->beta);
+    q->detector = qdetector_cccf_create_linear(q->preamble_pn, 64, LIQUID_FIRFILT_ARKAISER, q->k, q->m, q->beta);
     qdetector_cccf_set_threshold(q->detector, 0.5f);
 
     // create symbol timing recovery filters
     q->npfb = 64;  // number of filters in the bank
-    q->mf   = firpfb_crcf_create_rnyquist(LIQUID_FIRFILT_ARKAISER, q->npfb,k,q->m,q->beta);
+    q->mf   = firpfb_crcf_create_rnyquist(LIQUID_FIRFILT_ARKAISER, q->npfb,q->k,q->m,q->beta);
 
 #if FRAMESYNC64_ENABLE_EQ
     // create equalizer
     unsigned int p = 3;
-    q->equalizer = eqlms_cccf_create_lowpass(2*k*p+1, 0.4f);
+    q->equalizer = eqlms_cccf_create_lowpass(2*q->k*p+1, 0.4f);
     eqlms_cccf_set_bw(q->equalizer, 0.05f);
 #endif
 
@@ -353,7 +354,7 @@ int sc_framesync_execute_seekpn(sc_framesync   _q,
         //        _q->tau_hat, _q->pfb_index, _q->npfb, _q->dphi_hat, 20*log10f(_q->gamma_hat));
         
         // output filter scale
-        firpfb_crcf_set_scale(_q->mf, 0.5f / _q->gamma_hat);
+        firpfb_crcf_set_scale(_q->mf, (1.0f/_q->k) / _q->gamma_hat);
 
         // set frequency/phase of mixer
         nco_crcf_set_frequency(_q->mixer, _q->dphi_hat);
@@ -405,8 +406,8 @@ int sc_framesync_step(sc_framesync     _q,
         // set output
         *_y = v;
 
-        // decrement counter by k=2 samples/symbol
-        _q->mf_counter -= 2;
+        // decrement counter by k samples/symbol
+        _q->mf_counter -= _q->k;
     }
 
     // return flag
