@@ -302,6 +302,9 @@ struct config
   bool noise;
   float noise_floor;
   unsigned int M;
+  char *debug_prefix;
+  bool lo_offset_en;
+  float lo_offset;
 };
 
 void set_thread_param (pthread_t th, const char *name, int policy, int priority, int cpu)
@@ -373,9 +376,13 @@ static int rx_callback(unsigned char *  _header,
                     framesyncstats_s _stats,
                     void *           _userdata)
 {
+    static int num_debug_files = 6;
     printf("*** callback invoked ***\n");
     framesyncstats_print(&_stats);
-    return 1;
+    if (num_debug_files-- > 0)
+      return num_debug_files;
+
+    return 0;
 }
 
 int main (int C, char **V)
@@ -407,6 +414,9 @@ int main (int C, char **V)
   cfg.noise = false;
   cfg.noise_floor = -60.0f;
   cfg.M = 1;
+  cfg.debug_prefix = "sc_framesync";
+  cfg.lo_offset_en = false;
+  cfg.lo_offset = 50e3; // Khz
 
   int i = 0;
 
@@ -447,6 +457,12 @@ int main (int C, char **V)
       cfg.noise_floor = atof(V[++i]);
    }else if (!strcmp(V[i], "--M") && i+1 < C) {
       cfg.M = atoi(V[++i]);
+   }else if (!strcmp(V[i], "--lo-offset-en")) {
+      cfg.lo_offset_en = true;
+   }else if (!strcmp(V[i], "--lo-offset") && i+1 < C) {
+      cfg.lo_offset = atof(V[++i]);
+   }else if (!strcmp(V[i], "--debug-prefix") && i+1 < C) {
+      cfg.debug_prefix = V[++i];
    }else if (!strcmp(V[i], "-rxen"))
       cfg.rxen = true;
     else if (!strcmp(V[i], "-txen"))
@@ -574,15 +590,33 @@ int main (int C, char **V)
     cw_write(buf_tx, tx_buf_size, 0.75, 16e3, txcfg.fs_hz);
   } else if (cfg.sc) {
     if (cfg.txen) {
+      unsigned char hdr[8];
+      for (int k = 0; k < 8; ++k)
+        hdr[k] = 0xAA;
+      unsigned char data[150];
+      for (int k = 0; k < 150; ++k)
+        data[k] = 0xAA;
+
       fg = sc_framegen_create();
-      sc_framegen_execute (fg, NULL, NULL, buf_tx);
+      //sc_framegen_execute (fg, NULL, NULL, buf_tx, &tx_buf_size);
+      sc_framegen_execute (fg, hdr, data, buf_tx, &tx_buf_size);
       sc_framegen_print (fg);
       sc_framegen_destroy(fg);
-      tx_buf_size = WIFLX_SC_LIQUID_FRAME64_LEN;
+
+#if 0
+      for (int k = 0; k < tx_buf_size; ++k) {
+        float _i = crealf(buf_tx[k]);
+        float _q = cimagf(buf_tx[k]);
+        if ((_i > 1.0f || _i < -1.0f) ||
+            (_q > 1.0f || _q < -1.0f))
+        printf ("TX clipping, sample(%u) = %12.4e + 1i*%12.4e\n", k, _i, _q);
+      }
+#endif
     }
 
     if (cfg.rxen) {
      fs = sc_framesync_create (rx_callback, NULL);
+     sc_framesync_set_prefix(fs, cfg.debug_prefix);
      sc_framesync_print (fs);
     }
   }
@@ -629,13 +663,23 @@ int main (int C, char **V)
       // READ: Get pointers to RX buf and read IQ from RX buf port 0
       p_inc = iio_buffer_step(rxbuf);
       p_end = iio_buffer_end(rxbuf);
+      float complex x_if; // sample at IF frequency
       float complex x[cfg.M];
       float complex y;
+      int j = 0;
       for (p_dat = (char *)iio_buffer_first(rxbuf, rx0_i); p_dat < p_end; p_dat += p_inc) {
         const int16_t _i = ((int16_t*)p_dat)[0]; // Real (I)
         const int16_t _q = ((int16_t*)p_dat)[1]; // Imag (Q)
-        x[i++] = _i / 2048.0f + I * _q / 2048.0f;
-        //x[i++] = _i / 512.0f + I * _q / 512.0f;
+
+        x_if = _i / 2048.0f + I * _q / 2048.0f;
+        //x_if = _i / 512.0f + I * _q / 512.0f;
+        if (cfg.lo_offset_en) {
+          //printf("lo offset: %0.2f %0.6f %0.6f\n", cfg.lo_offset, cfg.lo_offset/cfg.fs, 2*M_PI*cfg.lo_offset/cfg.fs);
+          x_if *= cexpf(-_Complex_I*2*M_PI*cfg.lo_offset/cfg.fs*j);
+          j++;
+        }
+
+        x[i++] = x_if;
         if (cfg.M > 1) {
           if (i == cfg.M) {
             firdecim_crcf_execute(decim, x, &y);
@@ -659,14 +703,13 @@ int main (int C, char **V)
       for (p_dat = (char *)iio_buffer_first(txbuf, tx0_i); i < tx_buf_size && p_dat < p_end; p_dat += p_inc) {
         // 12-bit sample needs to be MSB aligned so shift by 4
         // https://wiki.analog.com/resources/eval/user-guides/ad-fmcomms2-ebz/software/basic_iq_datafiles#binary_format
-        //((int16_t*)p_dat)[0] = 0 << 4; // Real (I)
-        //((int16_t*)p_dat)[1] = 0 << 4; // Imag (Q)
-        ((int16_t*)p_dat)[0] = (int16_t)(creal(buf_tx[i]) * 8192.0f); // Real (I)
-        ((int16_t*)p_dat)[1] = (int16_t)(cimag(buf_tx[i]) * 8192.0f); // Image (Q)
-        //((int16_t*)p_dat)[0] = (int16_t)(creal(buf_tx[i]) * 16383.0f); // Real (I)
-        //((int16_t*)p_dat)[1] = (int16_t)(cimag(buf_tx[i]) * 16383.0f); // Image (Q)
-        //((int16_t*)p_dat)[0] = (int16_t)(creal(buf_tx[i]) * 32767.0f); // Real (I)
-        //((int16_t*)p_dat)[1] = (int16_t)(cimag(buf_tx[i]) * 32767.0f); // Image (Q)
+        //((int16_t*)p_dat)[0] = (int16_t)(crealf(buf_tx[i]) * 8192.0f); // Real (I)
+        //((int16_t*)p_dat)[1] = (int16_t)(cimagf(buf_tx[i]) * 8192.0f); // Image (Q)
+        ((int16_t*)p_dat)[0] = (int16_t)(crealf(buf_tx[i]) * 16384.0f); // Real (I)
+        ((int16_t*)p_dat)[1] = (int16_t)(cimagf(buf_tx[i]) * 16384.0f); // Image (Q)
+        // AD9361 12-bit MSB aligned [(2^(12-1) - 1) * 16 =  32752]
+        //((int16_t*)p_dat)[0] = (int16_t)(crealf(buf_tx[i]) * 21000.0f); // Real (I)
+        //((int16_t*)p_dat)[1] = (int16_t)(cimagf(buf_tx[i]) * 21000.0f); // Image (Q)
         ++i;
       }
     }

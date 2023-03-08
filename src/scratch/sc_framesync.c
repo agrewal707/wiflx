@@ -126,6 +126,7 @@ sc_framesync sc_framesync_create(framesync_callback _callback,
     q->callback = _callback;
     q->userdata = _userdata;
     q->m        = 7;    // filter delay (symbols)
+    //q->beta     = 0.25f; // excess bandwidth factor
     q->beta     = 0.3f; // excess bandwidth factor
     q->k        = 2;
 
@@ -141,11 +142,13 @@ sc_framesync sc_framesync_create(framesync_callback _callback,
 
     // create frame detector
     q->detector = qdetector_cccf_create_linear(q->preamble_pn, 64, LIQUID_FIRFILT_ARKAISER, q->k, q->m, q->beta);
+    //q->detector = qdetector_cccf_create_linear(q->preamble_pn, 64, LIQUID_FIRFILT_RRC, q->k, q->m, q->beta);
     qdetector_cccf_set_threshold(q->detector, 0.5f);
 
     // create symbol timing recovery filters
     q->npfb = 64;  // number of filters in the bank
     q->mf   = firpfb_crcf_create_rnyquist(LIQUID_FIRFILT_ARKAISER, q->npfb,q->k,q->m,q->beta);
+    //q->mf   = firpfb_crcf_create_rnyquist(LIQUID_FIRFILT_RRC, q->npfb,q->k,q->m,q->beta);
 
 #if FRAMESYNC64_ENABLE_EQ
     // create equalizer

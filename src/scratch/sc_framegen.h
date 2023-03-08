@@ -32,6 +32,7 @@ int sc_framegen_print(sc_framegen _q);
 int sc_framegen_execute(sc_framegen             _q,
                        unsigned char *        _header,
                        unsigned char *        _payload,
-                       liquid_float_complex * _frame);
+                       liquid_float_complex * _frame,
+                       unsigned int  *        _frame_len);
 
 #endif // WIFLX_SCRATCH_SC_FRAMEGEN_H

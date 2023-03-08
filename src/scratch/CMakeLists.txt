@@ -27,6 +27,7 @@ target_link_libraries (ad9361_iiostream
   -liio
   -lad9361
   -lm
+  -lpthread
   )
 
 # install

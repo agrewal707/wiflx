@@ -53,6 +53,7 @@ sc_framegen sc_framegen_create()
 {
     sc_framegen q = (sc_framegen) malloc(sizeof(struct sc_framegen_s));
     q->m    = 7;
+    //q->beta = 0.25f;
     q->beta = 0.3f;
     q->k = 2;
 
@@ -82,6 +83,7 @@ sc_framegen sc_framegen_create()
 
     // create pulse-shaping filter (k=2)
     q->interp = firinterp_crcf_create_prototype(LIQUID_FIRFILT_ARKAISER,q->k,q->m,q->beta,0);
+    //q->interp = firinterp_crcf_create_prototype(LIQUID_FIRFILT_RRC,q->k,q->m,q->beta,0);
 
     // return main object
     return q;
@@ -148,7 +150,8 @@ int sc_framegen_print(sc_framegen _q)
 int sc_framegen_execute(sc_framegen      _q,
                        unsigned char * _header,
                        unsigned char * _payload,
-                       float complex * _frame)
+                       float complex * _frame,
+                       unsigned int  * _frame_len)
 {
     unsigned int i;
 
@@ -186,6 +189,8 @@ int sc_framegen_execute(sc_framegen      _q,
         firinterp_crcf_execute(_q->interp, 0.0f, &_frame[n]);
         n+=_q->k;
     }
+
+    *_frame_len = n;
 
     assert(n==WIFLX_SC_LIQUID_FRAME64_LEN);
     return LIQUID_OK;
