@@ -38,3 +38,5 @@
 build_x86
 build_arm
 
+# debug files
+sc_framesync_*

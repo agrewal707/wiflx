@@ -62,13 +62,14 @@ def framesync64_plot(filename1, filename2,export=None):
     # plot impulse and spectral responses
     t = np.arange(len(buf))
 
-    ax.plot(f,psd)
-    ax.plot(f,psd2)
+    ax.plot(f,psd,label='file1')
+    ax.plot(f,psd2, label='file2')
     ax.set(xlim=(-0.5,0.5))
     ax.set_title('Power Spectral Density')
+    ax.grid(True)
+    ax.legend()
 
-
-    fig.suptitle('First: tau:%.6f, dphi:%.6f, phi:%.6f, rssi:%.3f dB, evm:%.3f\nSecond: tau:%.6f, dphi:%.6f, phi:%.6f, rssi:%.3f dB, evm:%.3f' % \
+    fig.suptitle('file1: tau:%.6f, dphi:%.6f, phi:%.6f, rssi:%.3f dB, evm:%.3f\nfile2: tau:%.6f, dphi:%.6f, phi:%.6f, rssi:%.3f dB, evm:%.3f' % \
         (tau_hat, dphi_hat, phi_hat, 20*np.log10(gamma_hat), evm, tau2_hat, dphi2_hat, phi2_hat, 20*np.log10(gamma2_hat), evm2))
 
     plt.show()

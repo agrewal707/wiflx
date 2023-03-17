@@ -25,58 +25,61 @@ namespace common {
 namespace config {
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
-	config::radio,
-	driver,
-	uri,
-	rxfreq,
-	txfreq,
-	rxgain,
-	txgain,
-	sampling_frequency,
-	rx_analog_bandwidth,
-	tx_analog_bandwidth,
-	fir_filter_file,
-	rx_buf_size,
-	rx_buf_count,
-	tx_buf_size,
-	tx_buf_count
+  config::radio,
+  driver,
+  uri,
+  rxfreq,
+  txfreq,
+  rxgain,
+  txgain,
+  sampling_frequency,
+  rx_analog_bandwidth,
+  tx_analog_bandwidth,
+  fir_filter_file,
+  rx_buf_size,
+  rx_buf_count,
+  tx_buf_size,
+  tx_buf_count
 )
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
-	config::ofdm,
-	M,
-	cp_len,
-	taper_len,
-	p,
-	ms,
-	fec0,
-	fec1,
-	check
+  config::ofdm,
+  M,
+  cp_len,
+  taper_len,
+  p,
+  ms,
+  fec0,
+  fec1,
+  check
 )
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
-	config::sc,
-	ms,
-	fec0,
-	fec1,
-	check
+  config::sc,
+  ms,
+  fec0,
+  fec1,
+  check,
+  rx_D,
+  rx_lo_offset_en,
+  rx_lo_offset
 )
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
-	config::fq_codel,
-	quantum,
-	packet_limit,
-	batch_drop_size,
-	max_flows,
-	max_aggregate_size
+  config::fq_codel,
+  quantum,
+  packet_limit,
+  batch_drop_size,
+  max_flows,
+  max_aggregate_size
 )
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
-	config::codel,
-	max_size,
-	min_bytes,
-	interval,
-	target
+  config::codel,
+  max_size,
+  min_bytes,
+  interval,
+  target
 )
 
 } // namespace config

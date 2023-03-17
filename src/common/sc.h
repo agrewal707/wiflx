@@ -82,6 +82,8 @@ private:
   listener *m_listener;
   flexframesync m_fs;
   pipereader_cf m_rx;
+  nco_crcf m_if_mixer;
+  firdecim_crcf m_decim;
 };
 
 } // namespace common

@@ -42,6 +42,7 @@ public:
   void tx_step ();
   void info (const int direction);
   void stats ();
+  float get_fs () const { return m_cfg.sampling_frequency; }
 
 private:
   void pluto_load_fir_filter (const char *filename);

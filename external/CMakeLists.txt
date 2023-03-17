@@ -386,13 +386,15 @@ ExternalProject_Add(uhd
   PREFIX uhd
 
   GIT_REPOSITORY "https://github.com/EttusResearch/uhd.git"
-  GIT_TAG "v4.1.0.6"
+  GIT_TAG "v4.4.0.0"
 
   SOURCE_SUBDIR host
 
   CMAKE_CACHE_ARGS
     -DCMAKE_TOOLCHAIN_FILE:PATH=${CMAKE_TOOLCHAIN_FILE}
     -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_INSTALL_PREFIX}
+    -DLIBUSB_INCLUDE_DIRS:PATH=${CMAKE_INSTALL_PREFIX}/include/libusb-1.0
+    -DLIBUSB_LIBRARIES:PATH=${CMAKE_INSTALL_PREFIX}/lib/libusb-1.0.so
 
   DEPENDS libusb boost
 )

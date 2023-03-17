@@ -115,7 +115,9 @@ sc_rx::sc_rx (const config::sc &cfg, pipebuf_cf &buff, radio &r, listener *l) :
   m_cfg (cfg),
   m_rx (buff),
   m_radio (r),
-  m_listener (l)
+  m_listener (l),
+  m_if_mixer (nullptr),
+  m_decim (nullptr)
 {
   WIFLX_LOG_FUNCTION (this);
 
@@ -129,6 +131,19 @@ sc_rx::sc_rx (const config::sc &cfg, pipebuf_cf &buff, radio &r, listener *l) :
   m_fs = flexframesync_create(on_recv, this);
   flexframesync_set_header_len (m_fs, 0);
   flexframesync_set_header_props (m_fs, &h_props);
+
+  if (m_cfg.rx_lo_offset_en)
+  {
+    m_if_mixer = nco_crcf_create(LIQUID_NCO);
+    nco_crcf_set_phase (m_if_mixer, 0.0f);
+    nco_crcf_set_frequency (m_if_mixer, 2*M_PI*m_cfg.rx_lo_offset/m_radio.get_fs());
+  }
+
+  if (m_cfg.rx_D > 1)
+  {
+    m_decim = firdecim_crcf_create_kaiser(m_cfg.rx_D, 7, 80.0f);
+    firdecim_crcf_set_scale(m_decim, 1.0f/(float)m_cfg.rx_D);
+  }
 }
 
 sc_rx::~sc_rx ()
@@ -138,6 +153,11 @@ sc_rx::~sc_rx ()
 #ifdef WIFLX_SC_DEBUG
   flexframesync_debug_print (m_fs, "/tmp/sc_rx_debug.m");
 #endif
+  if (m_if_mixer)
+    nco_crcf_destroy(m_if_mixer);
+
+ if (m_decim)
+    firdecim_crcf_destroy(m_decim);
 
   flexframesync_destroy (m_fs);
 }
@@ -162,7 +182,34 @@ void sc_rx::step ()
   if (m_radio.rx_step () > 0)
   {
     WIFLX_PROFILING_SCOPE_N("sc_rx_execute");
-    flexframesync_execute (m_fs, m_rx.rd(), m_rx.readable());
+
+    std::complex<float> x[m_cfg.rx_D];
+    for (int j = 0, i = 0; j < m_rx.readable(); ++j)
+    {
+      auto x_if = *(m_rx.rd () + j);
+      if (m_cfg.rx_lo_offset_en)
+      {
+        nco_crcf_mix_down (m_if_mixer, x_if, &x_if);
+        nco_crcf_step (m_if_mixer);
+      }
+      x[i++] = x_if;
+
+      if (m_cfg.rx_D > 1)
+      {
+        if (i == m_cfg.rx_D)
+        {
+          std::complex<float> y;
+          firdecim_crcf_execute(m_decim, x, &y);
+          flexframesync_execute (m_fs, &y, 1);
+          i = 0;
+        }
+      }
+      else
+      {
+        flexframesync_execute (m_fs, x, 1);
+        i = 0;
+      }
+    }
     m_rx.read (m_rx.readable());
   }
 }

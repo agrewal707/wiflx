@@ -62,6 +62,9 @@ struct sc
   std::string fec0;  // inner FEC scheme
   std::string fec1;  // outer FEC scheme
   std::string check; // data validity check
+  unsigned int rx_D; // decimation factor
+  bool rx_lo_offset_en;
+  float rx_lo_offset;
 };
 
 struct fq_codel
