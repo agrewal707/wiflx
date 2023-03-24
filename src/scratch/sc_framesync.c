@@ -126,8 +126,7 @@ sc_framesync sc_framesync_create(framesync_callback _callback,
     q->callback = _callback;
     q->userdata = _userdata;
     q->m        = 7;    // filter delay (symbols)
-    //q->beta     = 0.25f; // excess bandwidth factor
-    q->beta     = 0.3f; // excess bandwidth factor
+    q->beta     = 0.2f; // excess bandwidth factor
     q->k        = 2;
 
     unsigned int i;
@@ -141,14 +140,14 @@ sc_framesync sc_framesync_create(framesync_callback _callback,
     msequence_destroy(ms);
 
     // create frame detector
-    q->detector = qdetector_cccf_create_linear(q->preamble_pn, 64, LIQUID_FIRFILT_ARKAISER, q->k, q->m, q->beta);
-    //q->detector = qdetector_cccf_create_linear(q->preamble_pn, 64, LIQUID_FIRFILT_RRC, q->k, q->m, q->beta);
+    //q->detector = qdetector_cccf_create_linear(q->preamble_pn, 64, LIQUID_FIRFILT_ARKAISER, q->k, q->m, q->beta);
+    q->detector = qdetector_cccf_create_linear(q->preamble_pn, 64, LIQUID_FIRFILT_RRC, q->k, q->m, q->beta);
     qdetector_cccf_set_threshold(q->detector, 0.5f);
 
     // create symbol timing recovery filters
-    q->npfb = 64;  // number of filters in the bank
-    q->mf   = firpfb_crcf_create_rnyquist(LIQUID_FIRFILT_ARKAISER, q->npfb,q->k,q->m,q->beta);
-    //q->mf   = firpfb_crcf_create_rnyquist(LIQUID_FIRFILT_RRC, q->npfb,q->k,q->m,q->beta);
+    q->npfb = 128;  // number of filters in the bank
+    //q->mf   = firpfb_crcf_create_rnyquist(LIQUID_FIRFILT_ARKAISER, q->npfb,q->k,q->m,q->beta);
+    q->mf   = firpfb_crcf_create_rnyquist(LIQUID_FIRFILT_RRC, q->npfb,q->k,q->m,q->beta);
 
 #if FRAMESYNC64_ENABLE_EQ
     // create equalizer
@@ -293,7 +292,7 @@ int sc_framesync_set_userdata(sc_framesync _q,
 //  _q     :   frame synchronizer object
 //  _x      :   input sample array [size: _n x 1]
 //  _n      :   number of input samples
-int sc_framesync_execute(sc_framesync     _q,
+int sc_framesync_execute(sc_framesync   _q,
                         float complex * _x,
                         unsigned int    _n)
 {
@@ -327,6 +326,8 @@ int sc_framesync_execute(sc_framesync     _q,
 // internal methods
 //
 
+static int index_incr = 0;
+
 // execute synchronizer, seeking p/n sequence
 //  _q     :   frame synchronizer object
 //  _x      :   input sample
@@ -346,6 +347,7 @@ int sc_framesync_execute_seekpn(sc_framesync   _q,
         _q->phi_hat   = qdetector_cccf_get_phi  (_q->detector);
 
         // set appropriate filterbank index
+#if 0
         if (_q->tau_hat > 0) {
             _q->pfb_index = (unsigned int)(      _q->tau_hat  * _q->npfb) % _q->npfb;
             _q->mf_counter = 0;
@@ -353,11 +355,23 @@ int sc_framesync_execute_seekpn(sc_framesync   _q,
             _q->pfb_index = (unsigned int)((1.0f+_q->tau_hat) * _q->npfb) % _q->npfb;
             _q->mf_counter = 1;
         }
-        //printf("***** frame detected! tau-hat:%8.4f(%u/%u), dphi-hat:%8.4f, gamma:%8.2f dB\n",
-        //        _q->tau_hat, _q->pfb_index, _q->npfb, _q->dphi_hat, 20*log10f(_q->gamma_hat));
-        
+#endif
+        // set appropriate filterbank index
+        _q->mf_counter = _q->k - 2;
+        _q->pfb_index =  0;
+        int index = (int)(_q->tau_hat * _q->npfb);
+        if (index < 0) {
+            _q->mf_counter++;
+            index += _q->npfb;
+        }
+        _q->pfb_index = index;
+
+
+        printf("***** frame detected! tau-hat:%8.4f(%u/%u), dphi-hat:%8.4f, gamma:%8.2f dB\n",
+                _q->tau_hat, _q->pfb_index, _q->npfb, _q->dphi_hat, 20*log10f(_q->gamma_hat));
+
         // output filter scale
-        firpfb_crcf_set_scale(_q->mf, (1.0f/_q->k) / _q->gamma_hat);
+        firpfb_crcf_set_scale(_q->mf, 1.0f / (_q->k * _q->gamma_hat));
 
         // set frequency/phase of mixer
         nco_crcf_set_frequency(_q->mixer, _q->dphi_hat);
@@ -397,7 +411,7 @@ int sc_framesync_step(sc_framesync     _q,
 
     // increment counter to determine if sample is available
     _q->mf_counter++;
-    int sample_available = (_q->mf_counter >= 1) ? 1 : 0;
+    int sample_available = (_q->mf_counter >= _q->k-1) ? 1 : 0;
     
     // set output sample if available
     if (sample_available) {

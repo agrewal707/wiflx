@@ -53,8 +53,7 @@ sc_framegen sc_framegen_create()
 {
     sc_framegen q = (sc_framegen) malloc(sizeof(struct sc_framegen_s));
     q->m    = 7;
-    //q->beta = 0.25f;
-    q->beta = 0.3f;
+    q->beta = 0.2f;
     q->k = 2;
 
     unsigned int i;
@@ -82,8 +81,8 @@ sc_framegen sc_framegen_create()
     assert( qpilotgen_get_frame_len(q->pilotgen)==630 );
 
     // create pulse-shaping filter (k=2)
-    q->interp = firinterp_crcf_create_prototype(LIQUID_FIRFILT_ARKAISER,q->k,q->m,q->beta,0);
-    //q->interp = firinterp_crcf_create_prototype(LIQUID_FIRFILT_RRC,q->k,q->m,q->beta,0);
+    //q->interp = firinterp_crcf_create_prototype(LIQUID_FIRFILT_ARKAISER,q->k,q->m,q->beta,0);
+    q->interp = firinterp_crcf_create_prototype(LIQUID_FIRFILT_RRC,q->k,q->m,q->beta,0);
 
     // return main object
     return q;

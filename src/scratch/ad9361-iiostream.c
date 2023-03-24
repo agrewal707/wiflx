@@ -276,13 +276,13 @@ void dump_debug_data (const char *_filename, float fs)
   printf ("tx/rx samples written to %s\n", _filename);
 }
 
-void dump_tx_frame (const char *_filename, float complex *x, int x_len)
+void dump_tx_frame (const char *_filename, float complex *x, int x_len, float fs)
 {
   float complex *rc;
   int i;
   FILE* fid = fopen(_filename,"w");
   if (!fid) {
-      printf("could not open %s for writing\n", _filename);
+      printf("could not open %s for writing: %s\n", _filename, strerror(errno));
       return;
   }
 
@@ -297,6 +297,7 @@ void dump_tx_frame (const char *_filename, float complex *x, int x_len)
   for (i=0; i<x_len; i++)
   fprintf(fid,"tx(%4u) = %12.4e + j*%12.4e;\n", i+1, creal(x[i]), cimag(x[i]));
   fprintf(fid,"\n\n");
+  fprintf(fid,"plotspec2(tx, %.8f, [ 0 0 ], [ -100 0 ]);\n", 1/fs);
 
   fclose(fid);
 
@@ -445,8 +446,6 @@ int main (int C, char **V)
   cfg.lo_offset_en = false;
   cfg.lo_offset = 50e3; // Khz
 
-  int i = 0;
-
   // Listen to ctrl+c and IIO_ENSURE
   signal(SIGINT, handle_sig);
 
@@ -455,7 +454,7 @@ int main (int C, char **V)
     usage(V[0], stderr, 1, 0);
   }
 
-  for (i = 1; i < C; ++i)
+  for (int i = 1; i < C; ++i)
   {
     if (!strcmp(V[i], "--uri") && i+1<C)
       cfg.uri = V[++i];
@@ -543,7 +542,7 @@ int main (int C, char **V)
   IIO_ENSURE(get_phy_chan(TX, 0, &chn) && "TX port 0 not found");
   wr_ch_lli(chn, "filter_fir_en", 1);
 
-  // set buffer size
+  // set buffer count
   printf("* Configure kernel buffer count for TXRX\n");
   if (iio_device_set_kernel_buffers_count(tx, 4) != 0) {
     printf("Error configuring kernel buffer count for TX!\n");
@@ -583,8 +582,9 @@ int main (int C, char **V)
   iio_channel_enable(tx0_i);
   iio_channel_enable(tx0_q);
 
-  int tx_buf_size = 1440;
-  int rx_buf_size = 1440;
+  int tx_buf_size = WIFLX_SC_LIQUID_FRAME64_LEN;
+  //int tx_buf_size = 1024;
+  int rx_buf_size = WIFLX_SC_LIQUID_FRAME64_LEN;
   printf("* Creating non-cyclic IIO buffers with 1 MiS\n");
   rxbuf = iio_device_create_buffer(rx, rx_buf_size, false);
   if (!rxbuf) {
@@ -607,6 +607,7 @@ int main (int C, char **V)
   float complex buf_tx[tx_buf_size];
   //float complex buf_rx[rx_buf_size];
 
+
   sc_framegen fg = NULL;
   sc_framesync fs = NULL;
 
@@ -620,13 +621,21 @@ int main (int C, char **V)
   for (int k = 0; k < 150; ++k)
     data[k] = 0xAA;
 
-  for (i = 0; i < tx_buf_size; ++i)
-    buf_tx[i] = 0;
-
-  float scale = 0.0f;
-
+  nco_crcf cw_mixer = NULL;
   if (cfg.cw) {
-    cw_write(buf_tx, tx_buf_size, 0.75, 16e3, txcfg.fs_hz);
+#if 1
+    cw_mixer = nco_crcf_create(LIQUID_NCO);
+    nco_crcf_set_phase(cw_mixer, 0.0f);
+    nco_crcf_set_frequency(cw_mixer, 2.0f*M_PI*16e3/cfg.fs);
+    for (int i = 0; i < tx_buf_size; ++i) {
+      float complex y;
+      nco_crcf_cexpf(cw_mixer, &buf_tx[i]);
+      nco_crcf_step(cw_mixer);
+    }
+    //nco_crcf_destroy(cw_mixer);
+#else
+    cw_write(buf_tx, tx_buf_size, 1.0f, 16e3, txcfg.fs_hz);
+#endif
   } else if (cfg.sc) {
     if (cfg.txen) {
       fg = sc_framegen_create();
@@ -634,18 +643,8 @@ int main (int C, char **V)
       sc_framegen_execute (fg, hdr, data, buf_tx, &tx_buf_size);
       sc_framegen_print (fg);
 
-#if 0
-      for (int k = 0; k < tx_buf_size; ++k) {
-        float _i = crealf(buf_tx[k]);
-        float _q = cimagf(buf_tx[k]);
-        if ((_i > 1.0f || _i < -1.0f) ||
-            (_q > 1.0f || _q < -1.0f))
-        printf ("TX clipping, sample(%u) = %12.4e + 1i*%12.4e\n", k, _i, _q);
-      }
-#endif
-
-#if 0
-    dump_tx_frame ("/tmp/frame64_tx_samples.m", buf_tx, tx_buf_size);
+#if 1
+      dump_tx_frame ("/tmp/frame64_tx_rrc_2.m", buf_tx, tx_buf_size, cfg.fs);
 #endif
     }
 
@@ -656,10 +655,29 @@ int main (int C, char **V)
     }
   }
 
+  float max_sample_val = 0.0f;
+  for (int i = 0; i < tx_buf_size; ++i) {
+    float _i = crealf(buf_tx[i]);
+    float _q = cimagf(buf_tx[i]);
+    //printf ("TX sample(%u) = %12.4e + 1i*%12.4e, %f, %f\n", i, _i, _q, fabsf(_i), fabsf(_q));
+    if (fabsf(_i) > max_sample_val)
+      max_sample_val = fabsf(_i);
+    if (fabsf(_q) > max_sample_val)
+      max_sample_val = fabsf(_q);
+  }
+  if (max_sample_val < 1.0f)
+    max_sample_val = 1.0f;
+  printf ("Maximum sample val = %.6f\n", max_sample_val);
+
+  float tx_scale = floor(((powf(2, 12-1)-1)*16) / max_sample_val);
+  printf ("TX scale = %.6f\n", tx_scale);
+  //tx_scale = 8192;
+  printf ("TX scale (forced) = %.6f\n", tx_scale);
+
   if (cfg.noise) {
     float nstd  = powf(10.0f, cfg.noise_floor/20.0f); // noise std. dev.
-    for (i = 0; i < tx_buf_size; ++i)
-      buf_tx[i] += nstd*( randnf() + _Complex_I*randnf())*M_SQRT1_2;
+    for (int i = 0; i < tx_buf_size; ++i)
+      buf_tx[i] += nstd*(randnf() + _Complex_I*randnf())*M_SQRT1_2;
   }
 
   //set_thread_param (pthread_self(), "PHY", SCHED_FIFO, 1, 0);
@@ -668,16 +686,41 @@ int main (int C, char **V)
   debug_rx = windowcf_create (DEBUG_BUFFER_LEN);
 
   // FIR decimation filter
+  firdecim_crcf decim0;
+  decim0 = firdecim_crcf_create_kaiser(2, 7, 80.0f);
+  firdecim_crcf_set_scale(decim0, 1.0f/(float)2);
+
   firdecim_crcf decim;
+  msresamp2_crcf mdecim;
   if (cfg.M > 1) {
+#if 0
+    // For fs = 320Khz, fc = 40Khz = 0.125*fs, df (transition bandwidth) = (30-50)/fs = 0.0625
+    const int h_len = estimate_req_filter_len(0.0625, 80.0f);
+    //const int h_len = 30;
+    printf("h_len: %d\n", h_len);
+    float h[h_len];
+    // fc = 320 * 0.25 = 80
+    liquid_firdes_kaiser(h_len, 0.125, 80.0f, 0.0f, h);
+    decim = firdecim_crcf_create(cfg.M, h, h_len);
+    firdecim_crcf_set_scale(decim, 1.0f/(float)cfg.M);
+#endif
+
+#if 1
     decim = firdecim_crcf_create_kaiser(cfg.M, 7, 80.0f);
     firdecim_crcf_set_scale(decim, 1.0f/(float)cfg.M);
+#endif
+
+#if 0
+  // For fs = 320Khz, fc = 40Khz = 0.125*fs
+  mdecim = msresamp2_crcf_create(LIQUID_RESAMP_DECIM, cfg.M, 1.0f/(cfg.M*4), 0.0f, 80.0f);
+#endif
   }
 
   nco_crcf if_mixer = nco_crcf_create(LIQUID_NCO);
   nco_crcf_set_phase(if_mixer, 0.0f);
-  nco_crcf_set_frequency(if_mixer, 2*M_PI*cfg.lo_offset/cfg.fs);
+  nco_crcf_set_frequency(if_mixer, 2.0f*M_PI*cfg.lo_offset/cfg.fs);
 
+  int tx_i = 0, rx_i = 0, rx_k = 0;
   printf("* Starting IO streaming (press CTRL+C to cancel)\n");
   while (!stop)
   {
@@ -687,13 +730,13 @@ int main (int C, char **V)
 
     if (cfg.rxen) { // RX - READ
       // Refill RX buffer
-      i = 0;
       nbytes_rx = iio_buffer_refill(rxbuf);
       if (nbytes_rx < 0) { printf("Error refilling buf %d\n",(int) nbytes_rx); shutdown(); }
 
       // READ: Get pointers to RX buf and read IQ from RX buf port 0
       p_inc = iio_buffer_step(rxbuf);
       p_end = iio_buffer_end(rxbuf);
+      float complex x0[8];
       float complex x_if; // sample at IF frequency
       float complex x[cfg.M];
       float complex y;
@@ -701,55 +744,78 @@ int main (int C, char **V)
         const int16_t _i = ((int16_t*)p_dat)[0]; // Real (I)
         const int16_t _q = ((int16_t*)p_dat)[1]; // Imag (Q)
 
-        x_if = _i / 2048.0f + I * _q / 2048.0f;
+        x0[rx_k++] = _i / 2048.0f + I * _q / 2048.0f;
+        //x_if = _i / 2048.0f + I * _q / 2048.0f;
         //x_if = _i / 512.0f + I * _q / 512.0f;
-        if (cfg.lo_offset_en) {
-          nco_crcf_mix_down(if_mixer, x_if, &x_if);
-          nco_crcf_step(if_mixer);
-        }
+        //if (k == 2) {
+          //msresamp2_crcf_execute (mdecim, x0, &x_if);
+          x_if = x0[0];
+          rx_k = 0;
 
-        x[i++] = x_if;
-        if (cfg.M > 1) {
-          if (i == cfg.M) {
-            firdecim_crcf_execute(decim, x, &y);
-            sc_framesync_execute (fs, &y, 1);
-            windowcf_write (debug_rx, x, cfg.M);
-            i = 0;
+          if (cfg.lo_offset_en) {
+            nco_crcf_mix_down(if_mixer, x_if, &x_if);
+            nco_crcf_step(if_mixer);
           }
-        } else {
-          sc_framesync_execute (fs, x, 1);
-          windowcf_write (debug_rx, x, 1);
-          i = 0;
-        }
+
+          x[rx_i++] = x_if;
+          if (cfg.M > 1) {
+            if (rx_i == cfg.M) {
+              firdecim_crcf_execute(decim, x, &y);
+              //msresamp2_crcf_execute (mdecim, x, &y);
+              sc_framesync_execute (fs, &y, 1);
+              windowcf_write (debug_rx, x, cfg.M);
+              rx_i = 0;
+            }
+          } else {
+            sc_framesync_execute (fs, x, 1);
+            windowcf_write (debug_rx, x, 1);
+            rx_i = 0;
+          }
+        //w}
       }
-      printf("i: %d, nbytes_rx: %ld, samples: %ld\n", i, nbytes_rx, nbytes_rx/iio_device_get_sample_size(rx));
+      printf("rx_i: %d, nbytes_rx: %ld, samples: %ld\n", rx_i, nbytes_rx, nbytes_rx/iio_device_get_sample_size(rx));
     }
 
     if (cfg.txen) { // TX WRITE: Get pointers to TX buf and write IQ to TX buf port 0
-      *((uint32_t*)hdr) = pkt_id++;
-      sc_framegen_execute (fg, hdr, data, buf_tx, &tx_buf_size);
+      if (cfg.sc) {
+        *((uint32_t*)hdr) = pkt_id++;
+        sc_framegen_execute (fg, hdr, data, buf_tx, &tx_buf_size);
+      }
 
-      i = 0;
+      tx_i = 0;
       p_inc = iio_buffer_step(txbuf);
       p_end = iio_buffer_end(txbuf);
-      for (p_dat = (char *)iio_buffer_first(txbuf, tx0_i); i < tx_buf_size && p_dat < p_end; p_dat += p_inc) {
-        // 12-bit sample needs to be MSB aligned so shift by 4
-        // https://wiki.analog.com/resources/eval/user-guides/ad-fmcomms2-ebz/software/basic_iq_datafiles#binary_format
-        //((int16_t*)p_dat)[0] = (int16_t)(crealf(buf_tx[i]) * 8192.0f); // Real (I)
-        //((int16_t*)p_dat)[1] = (int16_t)(cimagf(buf_tx[i]) * 8192.0f); // Image (Q)
-        //((int16_t*)p_dat)[0] = (int16_t)(crealf(buf_tx[i]) * 16384.0f); // Real (I)
-        //((int16_t*)p_dat)[1] = (int16_t)(cimagf(buf_tx[i]) * 16384.0f); // Image (Q)
-        // AD9361 12-bit MSB aligned [(2^(12-1) - 1) * 16 =  32752]
-        ((int16_t*)p_dat)[0] = (int16_t)(crealf(buf_tx[i]) * 21835.0f); // Real (I)
-        ((int16_t*)p_dat)[1] = (int16_t)(cimagf(buf_tx[i]) * 21835.0f); // Image (Q)
-        ++i;
+      for (p_dat = (char *)iio_buffer_first(txbuf, tx0_i); p_dat < p_end; p_dat += p_inc) {
+        if (cfg.sc) {
+          if (tx_i < tx_buf_size) {
+            // 12-bit sample needs to be MSB aligned so shift by 4
+            // https://wiki.analog.com/resources/eval/user-guides/ad-fmcomms2-ebz/software/basic_iq_datafiles#binary_format
+            //((int16_t*)p_dat)[0] = (int16_t)(crealf(buf_tx[i]) * 8192.0f); // Real (I)
+            //((int16_t*)p_dat)[1] = (int16_t)(cimagf(buf_tx[i]) * 8192.0f); // Image (Q)
+            //((int16_t*)p_dat)[0] = (int16_t)(crealf(buf_tx[i]) * 16384.0f); // Real (I)
+            //((int16_t*)p_dat)[1] = (int16_t)(cimagf(buf_tx[i]) * 16384.0f); // Image (Q)
+            // AD9361 12-bit MSB aligned [(2^(12-1) - 1) * 16 =  32752]
+            //((int16_t*)p_dat)[0] = (int16_t)(crealf(buf_tx[i]) * 21835.0f); // Real (I)
+            //((int16_t*)p_dat)[1] = (int16_t)(cimagf(buf_tx[i]) * 21835.0f); // Image (Q)
+            ((int16_t*)p_dat)[0] = (int16_t)(crealf(buf_tx[tx_i]) * tx_scale); // Real (I)
+            ((int16_t*)p_dat)[1] = (int16_t)(cimagf(buf_tx[tx_i]) * tx_scale); // Image (Q)
+            ++tx_i;
+          } else {
+            ((int16_t*)p_dat)[0] = 0;
+            ((int16_t*)p_dat)[1] = 0;
+          }
+        } else if (cfg.cw) {
+          ((int16_t*)p_dat)[0] = (int16_t)(nco_crcf_cos(cw_mixer) * tx_scale); // Real (I)
+          ((int16_t*)p_dat)[1] = (int16_t)(nco_crcf_sin(cw_mixer) * tx_scale); // Image (Q)
+          nco_crcf_step (cw_mixer);
+        }
       }
 
       // Schedule TX buffer
       nbytes_tx = iio_buffer_push(txbuf);
-      //printf("i: %d, nbytes_tx: %ld, samples: %ld\n", i, nbytes_tx, nbytes_tx/iio_device_get_sample_size(tx));
+      //printf("tx_i: %d, nbytes_tx: %ld, samples: %ld\n", tx_i, nbytes_tx, nbytes_tx/iio_device_get_sample_size(tx));
       if (nbytes_tx < 0) { printf("Error pushing buf %d\n", (int) nbytes_tx); shutdown(); }
-      windowcf_write (debug_tx, buf_tx, nbytes_tx/iio_device_get_sample_size(tx));
+      windowcf_write (debug_tx, buf_tx, tx_i);
     }
 
     // Sample counter increment and status output
