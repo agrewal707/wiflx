@@ -29,6 +29,7 @@
 #include <complex.h>
 #include <assert.h>
 
+#include "sc_qdetector_cccf.h"
 #include "sc_framesync.h"
 
 #define FRAMESYNC64_ENABLE_EQ       0
@@ -73,7 +74,7 @@ struct sc_framesync_s {
     unsigned int        m;          // filter delay (symbols)
     float               beta;       // filter excess bandwidth factor
     unsigned int        k;          // samples per symbol
-    qdetector_cccf      detector;   // pre-demod detector
+    sc_qdetector_cccf   detector;   // pre-demod detector
     float               tau_hat;    // fractional timing offset estimate
     float               dphi_hat;   // carrier frequency offset estimate
     float               phi_hat;    // carrier phase offset estimate
@@ -140,9 +141,9 @@ sc_framesync sc_framesync_create(framesync_callback _callback,
     msequence_destroy(ms);
 
     // create frame detector
-    //q->detector = qdetector_cccf_create_linear(q->preamble_pn, 64, LIQUID_FIRFILT_ARKAISER, q->k, q->m, q->beta);
-    q->detector = qdetector_cccf_create_linear(q->preamble_pn, 64, LIQUID_FIRFILT_RRC, q->k, q->m, q->beta);
-    qdetector_cccf_set_threshold(q->detector, 0.5f);
+    //q->detector = sc_qdetector_cccf_create_linear(q->preamble_pn, 64, LIQUID_FIRFILT_ARKAISER, q->k, q->m, q->beta);
+    q->detector = sc_qdetector_cccf_create_linear(q->preamble_pn, 64, LIQUID_FIRFILT_RRC, q->k, q->m, q->beta);
+    sc_qdetector_cccf_set_threshold(q->detector, 0.5f);
 
     // create symbol timing recovery filters
     q->npfb = 128;  // number of filters in the bank
@@ -208,7 +209,7 @@ sc_framesync sc_framesync_copy(sc_framesync q_orig)
     q_copy->userdata = q_orig->userdata;
 
     // copy objects
-    q_copy->detector = qdetector_cccf_copy(q_orig->detector);
+    q_copy->detector = sc_qdetector_cccf_copy(q_orig->detector);
     q_copy->mixer    = nco_crcf_copy      (q_orig->mixer);
     q_copy->mf       = firpfb_crcf_copy   (q_orig->mf);
     q_copy->dec      = qpacketmodem_copy  (q_orig->dec);
@@ -227,7 +228,7 @@ sc_framesync sc_framesync_copy(sc_framesync q_orig)
 int sc_framesync_destroy(sc_framesync _q)
 {
     // destroy synchronization objects
-    qdetector_cccf_destroy(_q->detector);   // frame detector
+    sc_qdetector_cccf_destroy(_q->detector);   // frame detector
     firpfb_crcf_destroy   (_q->mf);         // matched filter
     nco_crcf_destroy      (_q->mixer);      // coarse NCO
     qpacketmodem_destroy  (_q->dec);        // payload demodulator
@@ -253,7 +254,7 @@ int sc_framesync_print(sc_framesync _q)
 int sc_framesync_reset(sc_framesync _q)
 {
     // reset binary pre-demod synchronizer
-    qdetector_cccf_reset(_q->detector);
+    sc_qdetector_cccf_reset(_q->detector);
 
     // reset carrier recovery objects
     nco_crcf_reset(_q->mixer);
@@ -336,15 +337,15 @@ int sc_framesync_execute_seekpn(sc_framesync   _q,
                                 float complex _x)
 {
     // push through pre-demod synchronizer
-    float complex * v = qdetector_cccf_execute(_q->detector, _x);
+    float complex * v = sc_qdetector_cccf_execute(_q->detector, _x);
 
     // check if frame has been detected
     if (v != NULL) {
         // get estimates
-        _q->tau_hat   = qdetector_cccf_get_tau  (_q->detector);
-        _q->gamma_hat = qdetector_cccf_get_gamma(_q->detector);
-        _q->dphi_hat  = qdetector_cccf_get_dphi (_q->detector);
-        _q->phi_hat   = qdetector_cccf_get_phi  (_q->detector);
+        _q->tau_hat   = sc_qdetector_cccf_get_tau  (_q->detector);
+        _q->gamma_hat = sc_qdetector_cccf_get_gamma(_q->detector);
+        _q->dphi_hat  = sc_qdetector_cccf_get_dphi (_q->detector);
+        _q->phi_hat   = sc_qdetector_cccf_get_phi  (_q->detector);
 
         // set appropriate filterbank index
 #if 0
@@ -381,7 +382,7 @@ int sc_framesync_execute_seekpn(sc_framesync   _q,
         _q->state = FRAMESYNC64_STATE_RXPREAMBLE;
 
         // run buffered samples through synchronizer
-        unsigned int buf_len = qdetector_cccf_get_buf_len(_q->detector);
+        unsigned int buf_len = sc_qdetector_cccf_get_buf_len(_q->detector);
         sc_framesync_execute(_q, v, buf_len);
     }
     return LIQUID_OK;
@@ -544,14 +545,14 @@ int sc_framesync_execute_rxpayload(sc_framesync   _q,
 // get detection threshold
 float sc_framesync_get_threshold(sc_framesync _q)
 {
-    return qdetector_cccf_get_threshold(_q->detector);
+    return sc_qdetector_cccf_get_threshold(_q->detector);
 }
 
 // set detection threshold
 int sc_framesync_set_threshold(sc_framesync _q,
                               float       _threshold)
 {
-    return qdetector_cccf_set_threshold(_q->detector, _threshold);
+    return sc_qdetector_cccf_set_threshold(_q->detector, _threshold);
 }
 
 // set prefix for exporting debugging files, default: "sc_framesync"

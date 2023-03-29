@@ -34,7 +34,6 @@
 # Misc
 *.tags*
 *.swp
-*.m
 build_x86
 build_arm
 
