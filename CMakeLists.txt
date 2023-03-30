@@ -30,6 +30,38 @@ configure_file (
   "${PROJECT_BINARY_DIR}/src/config.h"
 )
 
+set(CMAKE_CXX_FLAGS_FASTMATH "-Ofast" CACHE STRING
+ "Flags used by the C++ compiler during fastmath builds."
+  FORCE)
+
+set(CMAKE_C_FLAGS_FASTMATH "-Ofast" CACHE STRING
+  "Flags used by the C compiler during fastmath builds."
+  FORCE)
+
+set(CMAKE_EXE_LINKER_FLAGS_FASTMATH
+  "-Wl,--warn-unresolved-symbols,--warn-once" CACHE STRING
+  "Flags used for linking binaries during fastmath builds."
+  FORCE)
+set(CMAKE_SHARED_LINKER_FLAGS_FASTMATH
+  "-Wl,--warn-unresolved-symbols,--warn-once" CACHE STRING
+  "Flags used by the shared libraries linker during fastmath builds."
+  FORCE)
+
+if(${CMAKE_SYSTEM_PROCESSOR} MATCHES armv7l)
+add_definitions (-mfpu=neon)
+endif()
+
+mark_as_advanced(
+  CMAKE_CXX_FLAGS_FASTMATH
+  CMAKE_C_FLAGS_FASTMATH
+  CMAKE_EXE_LINKER_FLAGS_FASTMATH
+  CMAKE_SHARED_LINKER_FLAGS_FASTMATH)
+
+# Update the documentation string of CMAKE_BUILD_TYPE for GUIs
+set(CMAKE_BUILD_TYPE "${CMAKE_BUILD_TYPE}" CACHE STRING
+  "Choose the type of build, options are: None Debug Release RelWithDebInfo MinSizeRel Fastmath."
+  FORCE)
+
 add_subdirectory (src/common)
 add_subdirectory (src/ap)
 add_subdirectory (src/rm)

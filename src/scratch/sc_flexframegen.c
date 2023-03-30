@@ -53,14 +53,14 @@ static sc_flexframegenprops_s sc_flexframegenprops_default = {
     LIQUID_CRC_16,      // check
     LIQUID_FEC_NONE,    // fec0
     LIQUID_FEC_NONE,    // fec1
-    LIQUID_MODEM_BPSK,  // mod_scheme
+    LIQUID_MODEM_QPSK,  // mod_scheme
 };
 
 static sc_flexframegenprops_s sc_flexframegenprops_header_default = {
     LIQUID_CRC_16,      // check
     LIQUID_FEC_NONE,    // fec0
     LIQUID_FEC_NONE,    // fec1
-    LIQUID_MODEM_BPSK,  // mod_scheme
+    LIQUID_MODEM_QPSK,  // mod_scheme
 };
 
 int sc_flexframegenprops_init_default(sc_flexframegenprops_s * _props)
@@ -95,8 +95,12 @@ struct sc_flexframegen_s {
     float complex * header_sym;         // header symbols (pilots added)
 
     // payload
+
     unsigned int    payload_dec_len;    // length of decoded
     qpacketmodem    payload_encoder;    // packet encoder/modulator
+    unsigned int    payload_mod_len;    // payload length (encoded/modulated)
+    float complex * payload_mod;        // payload symbols (encoded/modulated)
+    qpilotgen       payload_pilotgen;   // payload pilot symbol generator
     unsigned int    payload_sym_len;    // length of encoded/modulated payload
     float complex * payload_sym;        // encoded payload symbols
 
@@ -137,7 +141,7 @@ sc_flexframegen sc_flexframegen_create(sc_flexframegenprops_s * _fgprops)
     // reset object
     sc_flexframegen_reset(q);
 
-    // create header encoder/modulator
+    // header encoder/modulator
     q->header = NULL;
     q->header_mod = NULL;
     q->header_sym = NULL;
@@ -145,11 +149,12 @@ sc_flexframegen sc_flexframegen_create(sc_flexframegenprops_s * _fgprops)
     q->header_pilotgen = NULL;
     q->header_user_len = 0;
 
-    // payload encoder/modulator (initialize with default parameters to be reconfigured later)
+    // payload encoder/modulator
+    q->payload_mod = NULL;
+    q->payload_sym = NULL;
     q->payload_encoder = qpacketmodem_create();
     q->payload_dec_len = 64;
-    q->payload_sym_len = qpacketmodem_get_frame_len(q->payload_encoder);
-    q->payload_sym     = (float complex *) malloc( q->payload_sym_len*sizeof(float complex));
+    q->payload_pilotgen = NULL;
 
     // set payload properties
     sc_flexframegen_setprops(q, _fgprops);
@@ -166,13 +171,15 @@ int sc_flexframegen_destroy(sc_flexframegen _q)
     qpacketmodem_destroy  (_q->header_encoder);
     qpilotgen_destroy     (_q->header_pilotgen);
     qpacketmodem_destroy  (_q->payload_encoder);
+    qpilotgen_destroy     (_q->payload_pilotgen);
 
     // free buffers/arrays
     free(_q->preamble_pn);  // preamble symbols
     free(_q->header);       // header bytes
     free(_q->header_mod);   // encoded/modulated header symbols 
     free(_q->header_sym);
-    free(_q->payload_sym);  // encoded/modulated payload symbols
+    free(_q->payload_mod);  // encoded/modulated payload symbols
+    free(_q->payload_sym);  //
 
     // destroy frame generator
     free(_q);
@@ -356,6 +363,9 @@ int sc_flexframegen_assemble(sc_flexframegen          _q,
     // reset object
     sc_flexframegen_reset(_q);
 
+    // reset interpolator
+    firinterp_crcf_reset(_q->interp);
+
     // set decoded payload length
     _q->payload_dec_len = _payload_dec_len;
 
@@ -396,10 +406,15 @@ int sc_flexframegen_assemble(sc_flexframegen          _q,
     sc_flexframegen_reconfigure(_q);
 
     // encode/modulate payload
-    qpacketmodem_encode(_q->payload_encoder, _payload, _q->payload_sym);
+    qpacketmodem_encode(_q->payload_encoder, _payload, _q->payload_mod);
+
+    // add pilots
+    qpilotgen_execute(_q->payload_pilotgen, _q->payload_mod, _q->payload_sym);
+
 
     // set assembled flag
     _q->frame_assembled = 1;
+
     return LIQUID_OK;
 }
 
@@ -450,13 +465,21 @@ int sc_flexframegen_reconfigure(sc_flexframegen _q)
                            _q->props.mod_scheme);
 
     // re-allocate memory for encoded message
-    _q->payload_sym_len = qpacketmodem_get_frame_len(_q->payload_encoder);
-    _q->payload_sym = (float complex*) realloc(_q->payload_sym,
-                                               _q->payload_sym_len*sizeof(float complex));
-
+    _q->payload_mod_len = qpacketmodem_get_frame_len(_q->payload_encoder);
+    _q->payload_mod = (float complex*) realloc(_q->payload_mod,
+                                               _q->payload_mod_len*sizeof(float complex));
     // ensure payload was reallocated appropriately
-    if (_q->payload_sym == NULL)
+    if (_q->payload_mod == NULL)
         return sc_error(LIQUID_EIMEM,"sc_flexframegen_reconfigure(), could not re-allocate payload array");
+
+    // create payload pilot sequence generator
+    if (_q->payload_pilotgen) {
+        qpilotgen_destroy(_q->payload_pilotgen);
+    }
+    _q->payload_pilotgen = qpilotgen_create(_q->payload_mod_len, 16);
+    _q->payload_sym_len  = qpilotgen_get_frame_len(_q->payload_pilotgen);
+    _q->payload_sym      = (float complex *) realloc(_q->payload_sym, _q->payload_sym_len*sizeof(float complex));
+    //printf("payload: %u bytes > %u mod > %u sym\n", 64, _q->payload_mod_len, _q->payload_sym_len);
 
     return LIQUID_OK;
 }

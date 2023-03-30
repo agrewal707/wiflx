@@ -191,6 +191,8 @@ int sc_framegen_execute(sc_framegen      _q,
 
     *_frame_len = n;
 
+    //printf ("frame len: %u\n", n);
+
     assert(n==WIFLX_SC_LIQUID_FRAME64_LEN);
     return LIQUID_OK;
 }

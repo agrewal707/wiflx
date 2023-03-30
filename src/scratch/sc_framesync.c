@@ -327,8 +327,6 @@ int sc_framesync_execute(sc_framesync   _q,
 // internal methods
 //
 
-static int index_incr = 0;
-
 // execute synchronizer, seeking p/n sequence
 //  _q     :   frame synchronizer object
 //  _x      :   input sample

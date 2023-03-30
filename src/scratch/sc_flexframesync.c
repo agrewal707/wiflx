@@ -37,7 +37,7 @@
 #include "sc_qdetector_cccf.h"
 #include "sc_flexframesync.h"
 
-#define DEBUG_FLEXFRAMESYNC         1
+#define DEBUG_FLEXFRAMESYNC         0
 #define DEBUG_FLEXFRAMESYNC_PRINT   0
 #define DEBUG_FILENAME              "sc_flexframesync_internal_debug.m"
 #define DEBUG_BUFFER_LEN            (2000)
@@ -79,7 +79,7 @@ static sc_flexframesyncprops_s sc_flexframesyncprops_header_default = {
     LIQUID_CRC_16,      // check
     LIQUID_FEC_NONE,    // fec0
     LIQUID_FEC_NONE,    // fec1
-    LIQUID_MODEM_BPSK,  // mod_scheme
+    LIQUID_MODEM_QPSK,  // mod_scheme
 };
 
 // sc_flexframesync object structure
@@ -93,7 +93,8 @@ struct sc_flexframesync_s {
     // synchronizer objects
     unsigned int    m;                  // filter delay (symbols)
     float           beta;               // filter excess bandwidth factor
-    sc_qdetector_cccf  detector;           // pre-demod detector
+    unsigned int    k;                  // samples per symbol
+    sc_qdetector_cccf  detector;        // pre-demod detector
     float           tau_hat;            // fractional timing offset estimate
     float           dphi_hat;           // carrier frequency offset estimate
     float           phi_hat;            // carrier phase offset estimate
@@ -131,7 +132,10 @@ struct sc_flexframesync_s {
 
     // payload
     int             payload_soft;       // payload performs soft demod
-    modemcf         payload_demod;      // payload demod (for phase recovery only)
+    //modemcf         payload_demod;      // payload demod (for phase recovery only)
+    qpilotsync      payload_pilotsync;  // payload demodulator/decoder
+    float complex * payload_mod;        // payload symbols (received) with pilots
+    unsigned int    payload_mod_len;    // payload symbols (length)
     float complex * payload_sym;        // payload symbols (received)
     unsigned int    payload_sym_len;    // payload symbols (length)
     qpacketmodem    payload_decoder;    // payload demodulator/decoder
@@ -168,6 +172,7 @@ sc_flexframesync sc_flexframesync_create(framesync_callback _callback,
     q->userdata = _userdata;
     q->m        = 7;    // filter delay (symbols)
     q->beta     = 0.2f; // excess bandwidth factor
+    q->k        = 2;
 
     unsigned int i;
 
@@ -182,25 +187,25 @@ sc_flexframesync sc_flexframesync_create(framesync_callback _callback,
     msequence_destroy(ms);
 
     // create frame detector
-    unsigned int k = 2; // samples/symbol
     //q->detector = sc_qdetector_cccf_create_linear(q->preamble_pn, 64, LIQUID_FIRFILT_ARKAISER, k, q->m, q->beta);
-    q->detector = sc_qdetector_cccf_create_linear(q->preamble_pn, 64, LIQUID_FIRFILT_RRC, k, q->m, q->beta);
+    q->detector = sc_qdetector_cccf_create_linear(q->preamble_pn, 64, LIQUID_FIRFILT_RRC, q->k, q->m, q->beta);
     sc_qdetector_cccf_set_threshold(q->detector, 0.5f);
 
     // create symbol timing recovery filters
     q->npfb = 128;   // number of filters in the bank
     //q->mf   = firpfb_crcf_create_rnyquist(LIQUID_FIRFILT_ARKAISER, q->npfb,k,q->m,q->beta);
-    q->mf   = firpfb_crcf_create_rnyquist(LIQUID_FIRFILT_RRC, q->npfb,k,q->m,q->beta);
+    q->mf   = firpfb_crcf_create_rnyquist(LIQUID_FIRFILT_RRC, q->npfb, q->k, q->m, q->beta);
 
 #if FLEXFRAMESYNC_ENABLE_EQ
     // create equalizer
     unsigned int p = 3;
-    q->equalizer = eqlms_cccf_create_lowpass(2*k*p+1, 0.4f);
+    q->equalizer = eqlms_cccf_create_lowpass(2*q->k*p+1, 0.4f);
     eqlms_cccf_set_bw(q->equalizer, 0.05f);
 #endif
 
     // create down-coverters for carrier phase tracking
     q->mixer = nco_crcf_create(LIQUID_NCO);
+
     q->pll   = nco_crcf_create(LIQUID_NCO);
     nco_crcf_pll_set_bandwidth(q->pll, 1e-4f); // very low bandwidth
     
@@ -215,23 +220,14 @@ sc_flexframesync sc_flexframesync_create(framesync_callback _callback,
     sc_flexframesync_set_header_props(q, NULL);
 
     // payload demodulator for phase recovery
-    q->payload_demod = modemcf_create(LIQUID_MODEM_QPSK);
+    //q->payload_demod = modemcf_create(LIQUID_MODEM_QPSK);
 
     // create payload demodulator/decoder object
-    q->payload_dec_len = 64;
-    int check      = LIQUID_CRC_24;
-    int fec0       = LIQUID_FEC_NONE;
-    int fec1       = LIQUID_FEC_GOLAY2412;
-    int mod_scheme = LIQUID_MODEM_BPSK;
+    q->payload_sym = NULL;
+    q->payload_mod = NULL;
+    q->payload_dec = NULL;
+    q->payload_pilotsync = NULL;
     q->payload_decoder = qpacketmodem_create();
-    qpacketmodem_configure(q->payload_decoder, q->payload_dec_len, check, fec0, fec1, mod_scheme);
-    //qpacketmodem_print(q->payload_decoder);
-    //assert( qpacketmodem_get_frame_len(q->payload_decoder)==600 );
-    q->payload_sym_len = qpacketmodem_get_frame_len(q->payload_decoder);
-
-    // allocate memory for payload symbols and recovered data bytes
-    q->payload_sym = (float complex*) malloc(q->payload_sym_len*sizeof(float complex));
-    q->payload_dec = (unsigned char*) malloc(q->payload_dec_len*sizeof(unsigned char));
     q->payload_soft = 0;
 
     // reset global data counters
@@ -269,9 +265,10 @@ int sc_flexframesync_destroy(sc_flexframesync _q)
     free(_q->payload_dec);
 
     // destroy synchronization objects
-    qpilotsync_destroy    (_q->header_pilotsync); // header demodulator/decoder
+    qpilotsync_destroy    (_q->header_pilotsync); // header pilotsync
     qpacketmodem_destroy  (_q->header_decoder);   // header demodulator/decoder
-    modemcf_destroy         (_q->payload_demod);    // payload demodulator (for PLL)
+    //modemcf_destroy         (_q->payload_demod);    // payload demodulator (for PLL)
+    qpilotsync_destroy    (_q->payload_pilotsync); // payload pilotsync
     qpacketmodem_destroy  (_q->payload_decoder);  // payload demodulator/decoder
     sc_qdetector_cccf_destroy(_q->detector);         // frame detector
     firpfb_crcf_destroy   (_q->mf);               // matched filter
@@ -449,12 +446,8 @@ int sc_flexframesync_execute_seekpn(sc_flexframesync _q,
     _q->dphi_hat  = sc_qdetector_cccf_get_dphi (_q->detector);
     _q->phi_hat   = sc_qdetector_cccf_get_phi  (_q->detector);
 
-#if DEBUG_FLEXFRAMESYNC_PRINT
-    printf("***** frame detected! tau-hat:%8.4f, dphi-hat:%8.4f, gamma:%8.2f dB\n",
-            _q->tau_hat, _q->dphi_hat, 20*log10f(_q->gamma_hat));
-#endif
-
     // set appropriate filterbank index
+#if 0
     if (_q->tau_hat > 0) {
         _q->pfb_index = (unsigned int)(      _q->tau_hat  * _q->npfb) % _q->npfb;
         _q->mf_counter = 0;
@@ -462,9 +455,25 @@ int sc_flexframesync_execute_seekpn(sc_flexframesync _q,
         _q->pfb_index = (unsigned int)((1.0f+_q->tau_hat) * _q->npfb) % _q->npfb;
         _q->mf_counter = 1;
     }
-    
-    // output filter scale (gain estimate, scaled by 1/2 for k=2 samples/symbol)
-    firpfb_crcf_set_scale(_q->mf, 0.5f / _q->gamma_hat);
+#endif
+    // set appropriate filterbank index
+    _q->mf_counter = _q->k - 2;
+    _q->pfb_index =  0;
+    int index = (int)(_q->tau_hat * _q->npfb);
+    if (index < 0) {
+        _q->mf_counter++;
+        index += _q->npfb;
+    }
+    _q->pfb_index = index;
+
+#if DEBUG_FLEXFRAMESYNC_PRINT
+    printf("***** frame detected! tau-hat:%8.4f(%u/%u), dphi-hat:%8.4f, gamma:%8.2f dB\n",
+            _q->tau_hat, _q->pfb_index, _q->npfb, _q->dphi_hat, 20*log10f(_q->gamma_hat));
+#endif
+
+    // output filter scale
+    firpfb_crcf_set_scale(_q->mf, 1.0f / (_q->k * _q->gamma_hat));
+
 
     // set frequency/phase of mixer
     nco_crcf_set_frequency(_q->mixer, _q->dphi_hat);
@@ -510,7 +519,7 @@ int sc_flexframesync_step(sc_flexframesync   _q,
 
     // increment counter to determine if sample is available
     _q->mf_counter++;
-    int sample_available = (_q->mf_counter >= 1) ? 1 : 0;
+    int sample_available = (_q->mf_counter >= _q->k-1) ? 1 : 0;
     
     // set output sample if available
     if (sample_available) {
@@ -522,8 +531,8 @@ int sc_flexframesync_step(sc_flexframesync   _q,
         // set output
         *_y = v;
 
-        // decrement counter by k=2 samples/symbol
-        _q->mf_counter -= 2;
+        // decrement counter by k samples/symbol
+        _q->mf_counter -= _q->k;
     }
 
     // return flag
@@ -659,6 +668,7 @@ int sc_flexframesync_decode_header(sc_flexframesync _q)
     float dphi_hat = qpilotsync_get_dphi(_q->header_pilotsync);
     float  phi_hat = qpilotsync_get_phi (_q->header_pilotsync);
     //printf("residual offset: dphi=%12.8f, phi=%12.8f\n", dphi_hat, phi_hat);
+
     nco_crcf_set_frequency(_q->pll, dphi_hat);
     nco_crcf_set_phase    (_q->pll, phi_hat + dphi_hat * _q->header_sym_len);
 
@@ -703,23 +713,31 @@ int sc_flexframesync_decode_header(sc_flexframesync _q)
     }
 
     // re-create payload demodulator for phase-locked loop
-    _q->payload_demod = modemcf_recreate(_q->payload_demod, mod_scheme);
+    //_q->payload_demod = modemcf_recreate(_q->payload_demod, mod_scheme);
 
     // reconfigure payload demodulator/decoder
     qpacketmodem_configure(_q->payload_decoder,
                            payload_dec_len, check, fec0, fec1, mod_scheme);
 
     // set length appropriately
-    _q->payload_sym_len = qpacketmodem_get_frame_len(_q->payload_decoder);
+    _q->payload_mod_len = qpacketmodem_get_frame_len(_q->payload_decoder);
 
     // re-allocate buffers accordingly
-    _q->payload_sym = (float complex*) realloc(_q->payload_sym, (_q->payload_sym_len)*sizeof(float complex));
+    _q->payload_mod = (float complex*) realloc(_q->payload_mod, (_q->payload_mod_len)*sizeof(float complex));
     _q->payload_dec = (unsigned char*) realloc(_q->payload_dec, (_q->payload_dec_len)*sizeof(unsigned char));
 
-    if (_q->payload_sym == NULL || _q->payload_dec == NULL) {
+    if (_q->payload_mod == NULL || _q->payload_dec == NULL) {
         _q->header_valid = 0;
         return sc_error(LIQUID_EIMEM,"sc_flexframesync_decode_header(), could not re-allocate payload arrays");
     }
+
+    // payload pilot synchronizer
+    if (_q->payload_pilotsync) {
+        qpilotsync_destroy(_q->payload_pilotsync);
+    }
+    _q->payload_pilotsync = qpilotsync_create(_q->payload_mod_len, 16);
+    _q->payload_sym_len   = qpilotsync_get_frame_len(_q->payload_pilotsync);
+    _q->payload_sym       = (float complex*) realloc(_q->payload_sym, _q->payload_sym_len*sizeof(float complex));
 
 #if DEBUG_FLEXFRAMESYNC_PRINT
     // print results
@@ -730,6 +748,7 @@ int sc_flexframesync_decode_header(sc_flexframesync _q)
     printf("    fec (outer)     : %s\n", fec_scheme_str[fec1][1]);
     printf("    mod scheme      : %s\n", modulation_types[mod_scheme].name);
     printf("    payload sym len : %u\n", _q->payload_sym_len);
+    printf("    payload mod len : %u\n", _q->payload_mod_len);
     printf("    payload dec len : %u\n", _q->payload_dec_len);
     printf("    user data       :");
     unsigned int i;
@@ -754,6 +773,8 @@ int sc_flexframesync_execute_rxpayload(sc_flexframesync _q,
 
     // compute output if timeout
     if (sample_available) {
+
+#if 0
         // TODO: clean this up
         // mix down with fine-tuned oscillator
         nco_crcf_mix_down(_q->pll, mf_out, &mf_out);
@@ -765,6 +786,7 @@ int sc_flexframesync_execute_rxpayload(sc_flexframesync _q,
         nco_crcf_pll_step(_q->pll, phase_error);
         nco_crcf_step(_q->pll);
         _q->framesyncstats.evm += evm*evm;
+#endif
 
         // save payload symbols (modem input/output)
         _q->payload_sym[_q->symbol_counter] = mf_out;
@@ -773,14 +795,17 @@ int sc_flexframesync_execute_rxpayload(sc_flexframesync _q,
         _q->symbol_counter++;
 
         if (_q->symbol_counter == _q->payload_sym_len) {
+            // recover data symbols from pilots
+            qpilotsync_execute(_q->payload_pilotsync, _q->payload_sym, _q->payload_mod);
+
             // decode payload
             if (_q->payload_soft) {
                 _q->payload_valid = qpacketmodem_decode_soft(_q->payload_decoder,
-                                                             _q->payload_sym,
+                                                             _q->payload_mod,
                                                              _q->payload_dec);
             } else {
                 _q->payload_valid = qpacketmodem_decode(_q->payload_decoder,
-                                                        _q->payload_sym,
+                                                        _q->payload_mod,
                                                         _q->payload_dec);
             }
 
@@ -794,7 +819,7 @@ int sc_flexframesync_execute_rxpayload(sc_flexframesync _q,
             if (_q->callback != NULL) {
                 // set framestats internals
                 int ms = qpacketmodem_get_modscheme(_q->payload_decoder);
-                _q->framesyncstats.evm           = 10*log10f(_q->framesyncstats.evm / (float)_q->payload_sym_len);
+                _q->framesyncstats.evm           = qpacketmodem_get_demodulator_evm(_q->payload_decoder);
                 _q->framesyncstats.rssi          = 20*log10f(_q->gamma_hat);
                 _q->framesyncstats.cfo           = nco_crcf_get_frequency(_q->mixer);
                 _q->framesyncstats.framesyms     = _q->payload_sym;

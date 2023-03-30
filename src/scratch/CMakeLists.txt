@@ -5,6 +5,12 @@ find_package(libiio REQUIRED)
 # build flags
 add_definitions (-Werror -Wno-deprecated -Wno-deprecated-declarations)
 
+message (STATUS "CMAKE_BUILD_TYPE: " ${CMAKE_BUILD_TYPE})
+#message (STATUS "CMAKE_C_FLAGS: " ${CMAKE_C_FLAGS_RELEASE})
+#message (STATUS "CMAKE_CXX_FLAGS: " ${CMAKE_CXX_FLAGS_RELEASE})
+#message (STATUS "CMAKE_EXE_LINKER_FLAGS: " ${CMAKE_EXE_LINKER_FLAGS_RELEASE})
+#message (STATUS "CMAKE_SHARED_LINKER_FLAGS: " ${CMAKE_SHARED_LINKER_FLAGS_RELEASE})
+
 include_directories(${LIQUID_DSP_INCLUDE_DIRS})
 link_directories(${LIQUID_DSP_LIBRARY_DIRS})
 

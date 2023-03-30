@@ -413,7 +413,7 @@ static int rx_callback(unsigned char *  _header,
                     void *           _userdata)
 {
     static int num_debug_files = 7;
-    printf("*** callback invoked ***: %d\n", num_debug_files);
+    printf("*** callback invoked ***: HDR:%u, PAYLOAD:%u\n", _header_valid, _payload_valid);
     framesyncstats_print(&_stats);
     if (--num_debug_files < 0)
       return 0;
@@ -509,7 +509,7 @@ int main (int C, char **V)
       cfg.scff_check = liquid_getopt_str2crc(V[++i]);
     else if (!strcmp(V[i], "--scff_dlen") && i+1 < C)
       cfg.scff_dlen = atoi(V[++i]);
-   else if (!strcmp(V[i], "--noise") && i+1 < C) {
+    else if (!strcmp(V[i], "--noise") && i+1 < C) {
       cfg.noise = true;
       cfg.noise_floor = atof(V[++i]);
    }else if (!strcmp(V[i], "--M") && i+1 < C) {
@@ -613,13 +613,14 @@ int main (int C, char **V)
   iio_channel_enable(tx0_i);
   iio_channel_enable(tx0_q);
 
-  const int iio_rx_buf_size = 2048;
+  const int iio_rx_buf_size = WIFLX_SC_LIQUID_FRAME64_LEN;
   printf("* Creating non-cyclic RX IIO buffers with %u samples\n", iio_rx_buf_size);
   rxbuf = iio_device_create_buffer(rx, iio_rx_buf_size, false);
   if (!rxbuf) {
     perror("Could not create RX buffer");
     shutdown();
   }
+  //const int iio_tx_buf_size = WIFLX_SC_LIQUID_FRAME64_LEN;
   const int iio_tx_buf_size = 2048;
   printf("* Creating non-cyclic TX IIO buffers with %u samples\n", iio_tx_buf_size);
   txbuf = iio_device_create_buffer(tx, iio_tx_buf_size, false);
@@ -835,7 +836,7 @@ int main (int C, char **V)
           rx_i = 0;
         }
       }
-      printf("rx_i: %lu, nbytes_rx: %ld, samples: %ld\n", rx_i, nbytes_rx, nbytes_rx/iio_device_get_sample_size(rx));
+      //printf("rx_i: %lu, nbytes_rx: %ld, samples: %ld\n", rx_i, nbytes_rx, nbytes_rx/iio_device_get_sample_size(rx));
     } // rx_en
 
     if (cfg.txen) { // TX WRITE: Get pointers to TX buf and write IQ to TX buf port 0
