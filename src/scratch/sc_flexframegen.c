@@ -39,6 +39,7 @@
 #define PACKETIZER_VERSION (1)
 #define FLEXFRAME_PROTOCOL  (101+PACKETIZER_VERSION)
 #define FLEXFRAME_H_DEC    (6) // decoded length
+#define FLEXFRAME_PREAMBLE_LEN (64)
 
 // reconfigure internal properties
 int           sc_flexframegen_reconfigure      (sc_flexframegen _q);
@@ -130,13 +131,14 @@ sc_flexframegen sc_flexframegen_create(sc_flexframegenprops_s * _fgprops)
     q->interp = firinterp_crcf_create_prototype(LIQUID_FIRFILT_RRC,q->k,q->m,q->beta,0);
 
     // generate pn sequence
-    q->preamble_pn = (float complex *) malloc(64*sizeof(float complex));
+    q->preamble_pn = (float complex *) malloc(FLEXFRAME_PREAMBLE_LEN*sizeof(float complex));
     msequence ms = msequence_create(7, 0x0089, 1);
-    for (i=0; i<64; i++) {
+    for (i=0; i<FLEXFRAME_PREAMBLE_LEN; i++) {
         q->preamble_pn[i] = (msequence_advance(ms) ? M_SQRT1_2 : -M_SQRT1_2);
         q->preamble_pn[i] += (msequence_advance(ms) ? M_SQRT1_2 : -M_SQRT1_2) * _Complex_I;
     }
     msequence_destroy(ms);
+
 
     // reset object
     sc_flexframegen_reset(q);
@@ -153,7 +155,7 @@ sc_flexframegen sc_flexframegen_create(sc_flexframegenprops_s * _fgprops)
     q->payload_mod = NULL;
     q->payload_sym = NULL;
     q->payload_encoder = qpacketmodem_create();
-    q->payload_dec_len = 64;
+    q->payload_dec_len = 1500;
     q->payload_pilotgen = NULL;
 
     // set payload properties
@@ -190,16 +192,16 @@ int sc_flexframegen_destroy(sc_flexframegen _q)
 int sc_flexframegen_print(sc_flexframegen _q)
 {
     unsigned int num_frame_symbols =
-            64 +                    // preamble p/n sequence length
-            _q->header_sym_len +    // header symbols
-            _q->payload_sym_len +   // number of modulation symbols
-            2*_q->m;                // number of tail symbols
+            FLEXFRAME_PREAMBLE_LEN +  // preamble p/n sequence length
+            _q->header_sym_len +      // header symbols
+            _q->payload_sym_len +     // number of modulation symbols
+            2*_q->m;                  // number of tail symbols
     unsigned int num_frame_bits = 8*_q->payload_dec_len;
     float eta = (float)num_frame_bits / (float)num_frame_symbols;
 
     printf("sc_flexframegen:\n");
     printf("  head          : %u symbols\n", _q->m);
-    printf("  preamble      : %u\n", 64);
+    printf("  preamble      : %u\n", FLEXFRAME_PREAMBLE_LEN);
     printf("  header        : %u symbols (%u bytes)\n", _q->header_sym_len, _q->header_dec_len);
     printf("  payload       : %u symbols (%u bytes)\n", _q->payload_sym_len, _q->payload_dec_len);
     printf("    payload crc : %s\n", crc_scheme_str[_q->props.check][1]);
@@ -305,7 +307,7 @@ int sc_flexframegen_set_header_len(sc_flexframegen   _q,
     _q->header_pilotgen = qpilotgen_create(_q->header_mod_len, 16);
     _q->header_sym_len  = qpilotgen_get_frame_len(_q->header_pilotgen);
     _q->header_sym      = (float complex *) realloc(_q->header_sym, _q->header_sym_len*sizeof(float complex));
-    //printf("header: %u bytes > %u mod > %u sym\n", 64, _q->header_mod_len, _q->header_sym_len);
+    //printf("header: %u bytes > %u mod > %u sym\n", header_dec_len, _q->header_mod_len, _q->header_sym_len);
     return LIQUID_OK;
 }
 
@@ -342,10 +344,10 @@ unsigned int sc_flexframegen_getframelen(sc_flexframegen _q)
         return 0;
     }
     unsigned int num_frame_symbols =
-            64 +                    // preamble p/n sequence length
-            _q->header_sym_len +    // header symbols
-            _q->payload_sym_len +   // number of modulation symbols
-            2*_q->m;                // number of tail symbols
+            FLEXFRAME_PREAMBLE_LEN + // preamble p/n sequence length
+            _q->header_sym_len +     // header symbols
+            _q->payload_sym_len +    // number of modulation symbols
+            2*_q->m;                 // number of tail symbols
 
     return num_frame_symbols*_q->k; // k samples/symbol
 }
@@ -479,7 +481,7 @@ int sc_flexframegen_reconfigure(sc_flexframegen _q)
     _q->payload_pilotgen = qpilotgen_create(_q->payload_mod_len, 16);
     _q->payload_sym_len  = qpilotgen_get_frame_len(_q->payload_pilotgen);
     _q->payload_sym      = (float complex *) realloc(_q->payload_sym, _q->payload_sym_len*sizeof(float complex));
-    //printf("payload: %u bytes > %u mod > %u sym\n", 64, _q->payload_mod_len, _q->payload_sym_len);
+    //printf("payload: %u bytes > %u mod > %u sym\n", _q->payload_dec_len, _q->payload_mod_len, _q->payload_sym_len);
 
     return LIQUID_OK;
 }
@@ -509,7 +511,7 @@ float complex sc_flexframegen_generate_preamble(sc_flexframegen _q)
     float complex symbol = _q->preamble_pn[_q->symbol_counter++];
 
     // check state
-    if (_q->symbol_counter == 64) {
+    if (_q->symbol_counter == FLEXFRAME_PREAMBLE_LEN) {
         _q->symbol_counter = 0;
         _q->state = STATE_HEADER;
     }

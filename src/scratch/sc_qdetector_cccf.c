@@ -22,6 +22,9 @@
 
 // Frame detector
 
+#include <time.h>
+#define BILLION 1000000000.0f
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -31,20 +34,19 @@
 #include "sc_common.h"
 #include "sc_qdetector_cccf.h"
 
-#   include <fftw3.h>
-#   define FFT_PLAN             fftwf_plan
-#   define FFT_CREATE_PLAN      fftwf_plan_dft_1d
-#   define FFT_DESTROY_PLAN     fftwf_destroy_plan
-#   define FFT_EXECUTE          fftwf_execute
-#   define FFT_DIR_FORWARD      FFTW_FORWARD
-#   define FFT_DIR_BACKWARD     FFTW_BACKWARD
-#   define FFT_METHOD           FFTW_ESTIMATE
-#   define FFT_MALLOC           fftwf_malloc
-#   define FFT_FREE             fftwf_free
-
+#include <fftw3.h>
+#define FFT_PLAN             fftwf_plan
+#define FFT_CREATE_PLAN      fftwf_plan_dft_1d
+#define FFT_DESTROY_PLAN     fftwf_destroy_plan
+#define FFT_EXECUTE          fftwf_execute
+#define FFT_DIR_FORWARD      FFTW_FORWARD
+#define FFT_DIR_BACKWARD     FFTW_BACKWARD
+#define FFT_METHOD           FFTW_ESTIMATE
+#define FFT_MALLOC           fftwf_malloc
+#define FFT_FREE             fftwf_free
 
 #define DEBUG_QDETECTOR              0
-#define DEBUG_QDETECTOR_PRINT        1
+#define DEBUG_QDETECTOR_PRINT        0
 #define DEBUG_QDETECTOR_FILENAME     "sc_qdetector_cccf_debug.m"
 
 // seek signal (initial detection)
@@ -111,13 +113,20 @@ sc_qdetector_cccf sc_qdetector_cccf_create(float complex * _s,
 
     // prepare transforms
     q->nfft       = 1 << liquid_nextpow2( (unsigned int)( 2 * q->s_len ) ); // NOTE: must be even
+    fprintf(stderr, "FFT nfft: %u\n", q->nfft);
     q->buf_time_0 = (float complex*) FFT_MALLOC(q->nfft * sizeof(float complex));
     q->buf_freq_0 = (float complex*) FFT_MALLOC(q->nfft * sizeof(float complex));
     q->buf_freq_1 = (float complex*) FFT_MALLOC(q->nfft * sizeof(float complex));
     q->buf_time_1 = (float complex*) FFT_MALLOC(q->nfft * sizeof(float complex));
 
-    q->fft  = FFT_CREATE_PLAN(q->nfft, q->buf_time_0, q->buf_freq_0, FFT_DIR_FORWARD,  0);
-    q->ifft = FFT_CREATE_PLAN(q->nfft, q->buf_freq_1, q->buf_time_1, FFT_DIR_BACKWARD, 0);
+    struct timespec start, end;
+    clock_gettime (CLOCK_MONOTONIC, &start);
+    q->fft  = FFT_CREATE_PLAN(q->nfft, q->buf_time_0, q->buf_freq_0, FFT_DIR_FORWARD,  FFT_METHOD);
+    q->ifft = FFT_CREATE_PLAN(q->nfft, q->buf_freq_1, q->buf_time_1, FFT_DIR_BACKWARD, FFT_METHOD);
+
+    clock_gettime (CLOCK_MONOTONIC, &end);
+    double diff = BILLION * (end.tv_sec - start.tv_sec) + end.tv_nsec - start.tv_nsec;
+	  fprintf(stderr, "FFT plan create elapsed time = %f nanoseconds\n", diff);
 
     // create frequency-domain template by taking nfft-point transform on 's', storing in 'S'
     q->S = (float complex*) malloc(q->nfft * sizeof(float complex));
@@ -173,7 +182,7 @@ sc_qdetector_cccf sc_qdetector_cccf_create_linear(float complex * _sequence,
         return sc_error_config("sc_qdetector_cccf_create_linear(), filter delay must be in [1,100]");
     if (_beta < 0.0f || _beta > 1.0f)
         return sc_error_config("sc_qdetector_cccf_create_linear(), excess bandwidth factor must be in [0,1]");
-    
+
     // create time-domain template
     unsigned int    s_len = _k * (_sequence_len + 2*_m);
     float complex * s     = (float complex*) malloc(s_len * sizeof(float complex));

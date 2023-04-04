@@ -365,9 +365,10 @@ int sc_framesync_execute_seekpn(sc_framesync   _q,
         }
         _q->pfb_index = index;
 
-
+#if 0
         printf("***** frame detected! tau-hat:%8.4f(%u/%u), dphi-hat:%8.4f, gamma:%8.2f dB\n",
                 _q->tau_hat, _q->pfb_index, _q->npfb, _q->dphi_hat, 20*log10f(_q->gamma_hat));
+#endif
 
         // output filter scale
         firpfb_crcf_set_scale(_q->mf, 1.0f / (_q->k * _q->gamma_hat));

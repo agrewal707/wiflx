@@ -6,6 +6,7 @@
  * Author: Michael Feilen <feilen_at_iabg.de>
  **/
 #define _GNU_SOURCE
+#include <unistd.h>
 #include <pthread.h>
 #include <sched.h>
 #include <stdbool.h>
@@ -54,6 +55,8 @@ static char tmpstr[64];
  
 /* IIO structs required for streaming */
 static struct iio_context *ctx   = NULL;
+static struct iio_device *tx = NULL;
+static struct iio_device *rx = NULL;
 static struct iio_channel *rx0_i = NULL;
 static struct iio_channel *rx0_q = NULL;
 static struct iio_channel *tx0_i = NULL;
@@ -341,6 +344,7 @@ struct config
   char *debug_prefix;
   bool lo_offset_en;
   float lo_offset;
+  char *tx_waveform_file;
 };
 
 void set_thread_param (pthread_t th, const char *name, int policy, int priority, int cpu)
@@ -426,12 +430,59 @@ static int rx_callback(unsigned char *  _header,
      __typeof__ (b) _b = (b); \
    _a < _b ? _a : _b; })
 
+void* plutosdr_monitor(void *data)
+{
+  uint32_t rxval, txval;
+  int ret;
+
+  struct config *cfg = (struct config*)data;
+
+  if (! (tx || rx)) {
+    fprintf (stderr, "TX or RX streaming devices not intilized\n");
+    return NULL;
+  }
+
+  // Clear all status bits for TX and RX dev
+  iio_device_reg_write(tx, 0x80000088, 0x6);
+  iio_device_reg_write(rx, 0x80000088, 0x6);
+
+  while (!stop) {
+    if (cfg->txen) {
+      // Check TX device
+      ret = iio_device_reg_read(tx, 0x80000088, &txval);
+      if (ret) {
+        fprintf(stderr, "Monitor: Failed to read status register: %s\n",
+            strerror(-ret));
+      } else if (txval & 1)
+        fprintf(stderr, "Monitor: TX DEVICE UNDERFLOW DETECTED!\n");
+
+      // Clear bits
+      if (txval)
+        iio_device_reg_write(tx, 0x80000088, txval);
+    }
+
+    if (cfg->rxen) {
+      // Check RX device
+      ret = iio_device_reg_read(rx, 0x80000088, &rxval);
+      if (ret) {
+        fprintf(stderr, "Monitor: Failed to read status register: %s\n",
+            strerror(-ret));
+      } else if (rxval & 4)
+        fprintf (stderr, "Monitor: RX DEVICE OVERFLOW DETECTED!\n");
+
+      // Clear bits
+      if (rxval)
+        iio_device_reg_write(rx, 0x80000088, rxval);
+    }
+
+    sleep(1);
+  }
+
+  return NULL;
+}
+
 int main (int C, char **V)
 {
-  // Streaming devices
-  struct iio_device *tx;
-  struct iio_device *rx;
-
   // RX and TX sample counters
   size_t nrx = 0;
   size_t ntx = 0;
@@ -439,6 +490,7 @@ int main (int C, char **V)
   // Stream configurations
   struct stream_cfg rxcfg;
   struct stream_cfg txcfg;
+
   struct config cfg;
   cfg.rxfreq = MHZ(787.5);
   cfg.txfreq = MHZ(757.5);
@@ -464,9 +516,11 @@ int main (int C, char **V)
   cfg.debug_prefix = "sc_framesync";
   cfg.lo_offset_en = false;
   cfg.lo_offset = 50e3; // Khz
+  cfg.tx_waveform_file = NULL;
 
   // Listen to ctrl+c and IIO_ENSURE
   signal(SIGINT, handle_sig);
+
 
   if (C < 2)
   {
@@ -509,6 +563,8 @@ int main (int C, char **V)
       cfg.scff_check = liquid_getopt_str2crc(V[++i]);
     else if (!strcmp(V[i], "--scff_dlen") && i+1 < C)
       cfg.scff_dlen = atoi(V[++i]);
+    else if (!strcmp(V[i], "--tx-waveform-file") && i+1 < C)
+      cfg.tx_waveform_file = V[++i];
     else if (!strcmp(V[i], "--noise") && i+1 < C) {
       cfg.noise = true;
       cfg.noise_floor = atof(V[++i]);
@@ -578,7 +634,7 @@ int main (int C, char **V)
   if (iio_device_set_kernel_buffers_count(tx, 4) != 0) {
     printf("Error configuring kernel buffer count for TX!\n");
   }
-  if (iio_device_set_kernel_buffers_count(rx, 4) != 0) {
+  if (iio_device_set_kernel_buffers_count(rx, 6) != 0) {
     printf("Error configuring kernel buffer count for RX!\n");
   }
 
@@ -614,14 +670,15 @@ int main (int C, char **V)
   iio_channel_enable(tx0_q);
 
   const int iio_rx_buf_size = WIFLX_SC_LIQUID_FRAME64_LEN;
+  //const int iio_rx_buf_size = 256;
   printf("* Creating non-cyclic RX IIO buffers with %u samples\n", iio_rx_buf_size);
   rxbuf = iio_device_create_buffer(rx, iio_rx_buf_size, false);
   if (!rxbuf) {
     perror("Could not create RX buffer");
     shutdown();
   }
-  //const int iio_tx_buf_size = WIFLX_SC_LIQUID_FRAME64_LEN;
-  const int iio_tx_buf_size = 2048;
+  const int iio_tx_buf_size = WIFLX_SC_LIQUID_FRAME64_LEN;
+  //const int iio_tx_buf_size = 256;
   printf("* Creating non-cyclic TX IIO buffers with %u samples\n", iio_tx_buf_size);
   txbuf = iio_device_create_buffer(tx, iio_tx_buf_size, false);
   if (!txbuf) {
@@ -636,7 +693,7 @@ int main (int C, char **V)
   get_lo_chan(TX, &chn);
 	iio_channel_attr_write_bool(chn, "powerdown", false);
 
-  int tx_buf_size = 16384;
+  int tx_buf_size = 32768;
   float complex buf_tx[tx_buf_size];
 
   sc_framegen fg = NULL;
@@ -654,6 +711,7 @@ int main (int C, char **V)
   unsigned char data[1500];
   for (int k = 0; k < 1500; ++k)
     data[k] = 0xAA;
+
 
   nco_crcf cw_mixer = NULL;
   if (cfg.cw) {
@@ -675,10 +733,8 @@ int main (int C, char **V)
       fg = sc_framegen_create();
       sc_framegen_execute (fg, hdr, data, buf_tx, &tx_buf_size);
       sc_framegen_print (fg);
-
-#if 1
-      dump_tx_frame ("/tmp/liquid_f64_rrc_k2_m7.m", buf_tx, tx_buf_size, cfg.fs);
-#endif
+      if (cfg.tx_waveform_file)
+        dump_tx_frame (cfg.tx_waveform_file, buf_tx, tx_buf_size, cfg.fs);
     }
 
     if (cfg.rxen) {
@@ -710,15 +766,15 @@ int main (int C, char **V)
       printf ("Wrote %u samples to tx buffer\n", tx_buf_size);
 
       sc_flexframegen_print (ffg);
-#if 1
-      dump_tx_frame ("/tmp/liquid_ff_rrc_k2_m7.m", buf_tx, tx_buf_size, cfg.fs);
-#endif
+      if (cfg.tx_waveform_file)
+        dump_tx_frame (cfg.tx_waveform_file, buf_tx, tx_buf_size, cfg.fs);
     }
 
     if (cfg.rxen) {
      ffs = sc_flexframesync_create (rx_callback, NULL);
      //sc_framesync_set_prefix(fs, cfg.debug_prefix);
      sc_flexframesync_print (ffs);
+
     }
   }
 
@@ -784,6 +840,9 @@ int main (int C, char **V)
   nco_crcf if_mixer = nco_crcf_create(LIQUID_NCO);
   nco_crcf_set_phase(if_mixer, 0.0f);
   nco_crcf_set_frequency(if_mixer, 2.0f*M_PI*cfg.lo_offset/cfg.fs);
+
+  pthread_t monitor;
+  pthread_create (&monitor, NULL, plutosdr_monitor, &cfg);
 
   size_t rx_i = 0;
   printf("* Starting IO streaming (press CTRL+C to cancel)\n");
@@ -897,6 +956,8 @@ else if (cfg.cw) {
   dump_debug_data ("/tmp/pluto_radio_samples.m", txcfg.fs_hz);
  
   shutdown();
+
+  pthread_join (monitor, NULL);
 
   return 0;
 }

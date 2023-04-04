@@ -25,6 +25,7 @@
 //
 // basic frame synchronizer
 //
+#include <time.h>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -47,6 +48,7 @@
 #define PACKETIZER_VERSION (1)
 #define FLEXFRAME_PROTOCOL (101+PACKETIZER_VERSION)
 #define FLEXFRAME_H_DEC    (6) // decoded length
+#define FLEXFRAME_PREAMBLE_LEN (64)
 
 // push samples through detection stage
 int sc_flexframesync_execute_seekpn(sc_flexframesync _q,
@@ -161,6 +163,8 @@ struct sc_flexframesync_s {
 #endif
 };
 
+#define BILLION 1000000000.0f
+
 // create sc_flexframesync object
 //  _callback       :   callback function invoked when frame is received
 //  _userdata       :   user-defined data object passed to callback
@@ -176,25 +180,34 @@ sc_flexframesync sc_flexframesync_create(framesync_callback _callback,
 
     unsigned int i;
 
+
     // generate p/n sequence
-    q->preamble_pn = (float complex*) malloc(64*sizeof(float complex));
-    q->preamble_rx = (float complex*) malloc(64*sizeof(float complex));
+    q->preamble_pn = (float complex*) malloc(FLEXFRAME_PREAMBLE_LEN*sizeof(float complex));
+    q->preamble_rx = (float complex*) malloc(FLEXFRAME_PREAMBLE_LEN*sizeof(float complex));
     msequence ms = msequence_create(7, 0x0089, 1);
-    for (i=0; i<64; i++) {
+    for (i=0; i<FLEXFRAME_PREAMBLE_LEN; i++) {
         q->preamble_pn[i] = (msequence_advance(ms) ? M_SQRT1_2 : -M_SQRT1_2);
         q->preamble_pn[i] += (msequence_advance(ms) ? M_SQRT1_2 : -M_SQRT1_2) * _Complex_I;
     }
     msequence_destroy(ms);
 
+    //struct timespec start, end;
+    //clock_gettime (CLOCK_MONOTONIC, &start);
+
     // create frame detector
-    //q->detector = sc_qdetector_cccf_create_linear(q->preamble_pn, 64, LIQUID_FIRFILT_ARKAISER, k, q->m, q->beta);
-    q->detector = sc_qdetector_cccf_create_linear(q->preamble_pn, 64, LIQUID_FIRFILT_RRC, q->k, q->m, q->beta);
+    //q->detector = sc_qdetector_cccf_create_linear(q->preamble_pn, FLEXFRAME_PREAMBLE_LEN, LIQUID_FIRFILT_ARKAISER, k, q->m, q->beta);
+    q->detector = sc_qdetector_cccf_create_linear(q->preamble_pn, FLEXFRAME_PREAMBLE_LEN, LIQUID_FIRFILT_RRC, q->k, q->m, q->beta);
     sc_qdetector_cccf_set_threshold(q->detector, 0.5f);
+
+    //clock_gettime (CLOCK_MONOTONIC, &end);
 
     // create symbol timing recovery filters
     q->npfb = 128;   // number of filters in the bank
     //q->mf   = firpfb_crcf_create_rnyquist(LIQUID_FIRFILT_ARKAISER, q->npfb,k,q->m,q->beta);
     q->mf   = firpfb_crcf_create_rnyquist(LIQUID_FIRFILT_RRC, q->npfb, q->k, q->m, q->beta);
+
+    //double diff = BILLION * (end.tv_sec - start.tv_sec) + end.tv_nsec - start.tv_nsec;
+	  //fprintf(stderr, "elapsed time = %f nanoseconds\n", diff);
 
 #if FLEXFRAMESYNC_ENABLE_EQ
     // create equalizer
@@ -574,7 +587,7 @@ int sc_flexframesync_execute_rxpreamble(sc_flexframesync _q,
         _q->preamble_counter++;
 
         // update state
-        if (_q->preamble_counter == 64 + delay)
+        if (_q->preamble_counter == FLEXFRAME_PREAMBLE_LEN + delay)
             _q->state = FLEXFRAMESYNC_STATE_RXHEADER;
     }
     return LIQUID_OK;
