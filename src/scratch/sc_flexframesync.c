@@ -38,10 +38,9 @@
 #include "sc_qdetector_cccf.h"
 #include "sc_flexframesync.h"
 
-#define DEBUG_FLEXFRAMESYNC         0
-#define DEBUG_FLEXFRAMESYNC_PRINT   0
-#define DEBUG_FILENAME              "sc_flexframesync_internal_debug.m"
-#define DEBUG_BUFFER_LEN            (2000)
+#define DEBUG_FLEXFRAMESYNC         1
+#define DEBUG_FLEXFRAMESYNC_PRINT   1
+#define DEBUG_BUFFER_LEN            (16384)
 
 #define FLEXFRAMESYNC_ENABLE_EQ     0
 
@@ -76,6 +75,14 @@ int sc_flexframesync_execute_rxheader(sc_flexframesync _q,
 // receive payload symbols
 int sc_flexframesync_execute_rxpayload(sc_flexframesync _q,
                                     float complex _x);
+
+// export debugging based on return value
+//  0   : do not write file
+//  >0  : write specific number (hex)
+//  -1  : number of packets detected
+//  -2  : id using first 4 bytes of header
+//  -3  : write with random extension
+int sc_flexframesync_debug_export(sc_flexframesync _q, int _code);
 
 static sc_flexframesyncprops_s sc_flexframesyncprops_header_default = {
     LIQUID_CRC_16,      // check
@@ -156,10 +163,11 @@ struct sc_flexframesync_s {
     }               state;                  // receiver state
 
 #if DEBUG_FLEXFRAMESYNC
-    int         debug_enabled;          // debugging enabled?
-    int         debug_objects_created;  // debugging objects created?
-    int         debug_qdetector_flush;  // debug: flag to set if we are flushing detector
-    windowcf    debug_x;                // debug: raw input samples
+    windowcf     debug_x;                // debug: raw input samples
+    int          debug_qdetector_flush;  // debug: flag to set if we are flushing detector
+    char *       prefix;                // debug: filename prefix
+    char *       filename;              // debug: filename buffer
+    unsigned int num_files_exported;    // debug: number of files exported
 #endif
 };
 
@@ -247,11 +255,12 @@ sc_flexframesync sc_flexframesync_create(framesync_callback _callback,
     sc_flexframesync_reset_framedatastats(q);
 
 #if DEBUG_FLEXFRAMESYNC
-    // set debugging flags, objects to NULL
-    q->debug_enabled         = 0;
-    q->debug_objects_created = 0;
+    q->debug_x  = windowcf_create(DEBUG_BUFFER_LEN);
     q->debug_qdetector_flush = 0;
-    q->debug_x               = NULL;
+    q->prefix   = NULL;
+    q->filename = NULL;
+    q->num_files_exported = 0;
+    sc_flexframesync_set_prefix(q, "sc_flexframesync");
 #endif
 
     // reset state and return
@@ -264,7 +273,7 @@ int sc_flexframesync_destroy(sc_flexframesync _q)
 {
 #if DEBUG_FLEXFRAMESYNC
     // clean up debug objects (if created)
-    if (_q->debug_objects_created)
+    if (_q->debug_x)
         windowcf_destroy(_q->debug_x);
 #endif
 
@@ -408,7 +417,7 @@ int sc_flexframesync_execute(sc_flexframesync   _q,
 #if DEBUG_FLEXFRAMESYNC
         // write samples to debug buffer
         // NOTE: the debug_qdetector_flush prevents samples from being written twice
-        if (_q->debug_enabled && !_q->debug_qdetector_flush)
+        if (!_q->debug_qdetector_flush)
             windowcf_push(_q->debug_x, _x[i]);
 #endif
         switch (_q->state) {
@@ -486,7 +495,6 @@ int sc_flexframesync_execute_seekpn(sc_flexframesync _q,
 
     // output filter scale
     firpfb_crcf_set_scale(_q->mf, 1.0f / (_q->k * _q->gamma_hat));
-
 
     // set frequency/phase of mixer
     nco_crcf_set_frequency(_q->mixer, _q->dphi_hat);
@@ -844,13 +852,18 @@ int sc_flexframesync_execute_rxpayload(sc_flexframesync _q,
                 _q->framesyncstats.fec1          = qpacketmodem_get_fec1(_q->payload_decoder);
 
                 // invoke callback method
-                _q->callback(_q->header_dec,
+                int rc = _q->callback(_q->header_dec,
                              _q->header_valid,
                              _q->payload_dec,
                              _q->payload_dec_len,
                              _q->payload_valid,
                              _q->framesyncstats,
                              _q->userdata);
+
+#if DEBUG_FLEXFRAMESYNC
+                // export debugging based on return value
+                sc_flexframesync_debug_export(_q, rc);
+#endif
             }
 
             // reset frame synchronizer
@@ -872,121 +885,106 @@ framedatastats_s sc_flexframesync_get_framedatastats(sc_flexframesync _q)
     return _q->framedatastats;
 }
 
-// enable debugging
-int sc_flexframesync_debug_enable(sc_flexframesync _q)
+// set prefix for exporting debugging files, default: "sc_framesync"
+//  _q      : frame sync object
+//  _prefix : string with valid file path
+int sc_flexframesync_set_prefix(sc_flexframesync  _q,
+                                const char * _prefix)
 {
-    // create debugging objects if necessary
-#if DEBUG_FLEXFRAMESYNC
-    if (_q->debug_objects_created)
+    // skip if input is NULL pointer
+    if (_prefix == NULL)
         return LIQUID_OK;
 
-    // create debugging objects
-    _q->debug_x = windowcf_create(DEBUG_BUFFER_LEN);
+    // sanity check
+    unsigned int n = strlen(_prefix);
+    if (n > 1<<14) {
+        fprintf(stderr,"sc_flexframesync_set_prefix(), input string size exceeds reasonable limits");
+        return LIQUID_EICONFIG;
+    }
 
-    // set debugging flags
-    _q->debug_enabled = 1;
-    _q->debug_objects_created = 1;
+    // reallocate memory, copy input, and return
+    _q->prefix   = (char*) realloc(_q->prefix,   n+ 1);
+    _q->filename = (char*) realloc(_q->filename, n+15);
+    memmove(_q->prefix, _prefix, n);
+    _q->prefix[n] = '\0';
     return LIQUID_OK;
-#else
-    return sc_error(LIQUID_EICONFIG,"sc_flexframesync_debug_enable(): compile-time debugging disabled");
-#endif
 }
 
-// disable debugging
-int sc_flexframesync_debug_disable(sc_flexframesync _q)
+// export debugging samples to file
+int sc_flexframesync_debug_export(sc_flexframesync _q, int _code)
 {
-    // disable debugging
-#if DEBUG_FLEXFRAMESYNC
-    _q->debug_enabled = 0;
-    return LIQUID_OK;
-#else
-    return sc_error(LIQUID_EICONFIG,"sc_flexframesync_debug_enable(): compile-time debugging disabled");
-#endif
-}
+    // determine what to do based on callback return code
+    if (_code == 0) {
+        // do not export file
+        return LIQUID_OK;
+    } else if (_code > 0) {
+        // user-defined value
+        sprintf(_q->filename,"%s_u%.8x.dat", _q->prefix, _code);
+    } else if (_code == -1) {
+        // based on number of packets detected
+        sprintf(_q->filename,"%s_n%.8x.dat", _q->prefix,
+                _q->framedatastats.num_frames_detected);
+    } else if (_code == -2) {
+        // decoded header (first 4 bytes)
+        sprintf(_q->filename,"%s_h", _q->prefix);
+        char * p = _q->filename + strlen(_q->prefix) + 2;
+        for (unsigned int i=0; i<4; i++) {
+            sprintf(p,"%.2x", _q->payload_dec[i]);
+            p += 2;
+        }
+        sprintf(p,".dat");
+    } else if (_code == -3) {
+        // random extension
+        sprintf(_q->filename,"%s_r%.8x.dat", _q->prefix, rand() & 0xffffffff);
+    } else {
+        return fprintf(stderr, "sc_flexframesync_debug_export(), invalid return code %d", _code);
+        return LIQUID_EICONFIG;
+    }
 
-// print debugging information
-int sc_flexframesync_debug_print(sc_flexframesync _q,
-                              const char *  _filename)
-{
-#if DEBUG_FLEXFRAMESYNC
-    if (!_q->debug_objects_created)
-        return sc_error(LIQUID_EICONFIG,"sc_flexframesync_debug_print(), debugging objects don't exist; enable debugging first");
+    FILE * fid = fopen(_q->filename,"wb");
+    if (fid == NULL) {
+        fprintf (stderr, "sc_flexframesync_debug_export(), could not open %s for writing", _q->filename);
+        return LIQUID_EIO;
+    }
 
-    unsigned int i;
+    // TODO: write file header?
+
+    unsigned int num_frame_symbols =
+            FLEXFRAME_PREAMBLE_LEN + // preamble p/n sequence length
+            _q->header_sym_len +     // header symbols
+            _q->payload_sym_len +    // number of modulation symbols
+            2*_q->m;                 // number of tail symbols
+
+    // only write received frame samples with 16 pre-frame start samples
+    unsigned int x_len = num_frame_symbols*_q->k + 16; 
+
+    // write debug buffer
     float complex * rc;
-    FILE* fid = fopen(_filename,"w");
-    if (fid==NULL)
-        return sc_error(LIQUID_EIO,"sc_flexframesync_debug_print(), could not open '%s' for writing", _filename);
-    fprintf(fid,"%% %s: auto-generated file", _filename);
-    fprintf(fid,"\n\n");
-    fprintf(fid,"clear all;\n");
-    fprintf(fid,"close all;\n\n");
-    fprintf(fid,"n = %u;\n", DEBUG_BUFFER_LEN);
-    
-    // main figure
-    fprintf(fid,"figure('Color','white','position',[100 100 800 600]);\n");
-
-    // write x
-    fprintf(fid,"x = zeros(1,n);\n");
     windowcf_read(_q->debug_x, &rc);
-    for (i=0; i<DEBUG_BUFFER_LEN; i++)
-        fprintf(fid,"x(%4u) = %12.4e + j*%12.4e;\n", i+1, crealf(rc[i]), cimagf(rc[i]));
-    fprintf(fid,"\n\n");
-    fprintf(fid,"subplot(3,2,1:2);\n");
-    fprintf(fid,"plot(1:length(x),real(x), 1:length(x),imag(x));\n");
-    fprintf(fid,"grid on;\n");
-    fprintf(fid,"xlabel('sample index');\n");
-    fprintf(fid,"ylabel('received signal, x');\n");
+    fwrite(&x_len, sizeof(unsigned int), 1, fid);
+    fwrite(rc+DEBUG_BUFFER_LEN-x_len, sizeof(float complex), x_len, fid);
 
-    // write p/n sequence
-    fprintf(fid,"preamble_pn = zeros(1,64);\n");
-    rc = _q->preamble_pn;
-    for (i=0; i<64; i++)
-        fprintf(fid,"preamble_pn(%4u) = %12.4e + 1i*%12.4e;\n", i+1, crealf(rc[i]), cimagf(rc[i]));
+    // export framesync stats
+    //framesyncstats_export(_q->framesyncstats, fid);
 
-    // write p/n symbols
-    fprintf(fid,"preamble_rx = zeros(1,64);\n");
-    rc = _q->preamble_rx;
-    for (i=0; i<64; i++)
-        fprintf(fid,"preamble_rx(%4u) = %12.4e + 1i*%12.4e;\n", i+1, crealf(rc[i]), cimagf(rc[i]));
+    // export measured offsets
+    fwrite(&(_q->tau_hat),  sizeof(float), 1, fid);
+    fwrite(&(_q->dphi_hat), sizeof(float), 1, fid);
+    fwrite(&(_q->phi_hat),  sizeof(float), 1, fid);
+    fwrite(&(_q->gamma_hat),sizeof(float), 1, fid);
+    fwrite(&(_q->framesyncstats.evm), sizeof(float), 1, fid);
 
-    // write recovered header symbols (after qpilotsync)
-    fprintf(fid,"header_mod = zeros(1,%u);\n", _q->header_mod_len);
-    rc = _q->header_mod;
-    for (i=0; i<_q->header_mod_len; i++)
-        fprintf(fid,"header_mod(%4u) = %12.4e + j*%12.4e;\n", i+1, crealf(rc[i]), cimagf(rc[i]));
+    // export payload values
+    fwrite(&(_q->payload_sym_len), sizeof(unsigned int), 1, fid);
+    fwrite(_q->payload_sym,  sizeof(float complex), _q->payload_sym_len, fid);
+    fwrite(&(_q->payload_mod_len), sizeof(unsigned int), 1, fid);
+    fwrite(_q->payload_mod, sizeof(float complex), _q->payload_mod_len, fid);
+    fwrite(&(_q->payload_dec_len), sizeof(unsigned int), 1, fid);
+    fwrite(_q->payload_dec, sizeof(unsigned char),  _q->payload_dec_len, fid);
 
-    // write raw payload symbols
-    fprintf(fid,"payload_sym = zeros(1,%u);\n", _q->payload_sym_len);
-    rc = _q->payload_sym;
-    for (i=0; i<_q->payload_sym_len; i++)
-        fprintf(fid,"payload_sym(%4u) = %12.4e + j*%12.4e;\n", i+1, crealf(rc[i]), cimagf(rc[i]));
-
-    fprintf(fid,"subplot(3,2,[3 5]);\n");
-    fprintf(fid,"plot(real(header_mod),imag(header_mod),'o');\n");
-    fprintf(fid,"xlabel('in-phase');\n");
-    fprintf(fid,"ylabel('quadrature phase');\n");
-    fprintf(fid,"grid on;\n");
-    fprintf(fid,"axis([-1 1 -1 1]*1.5);\n");
-    fprintf(fid,"axis square;\n");
-    fprintf(fid,"title('Received Header Symbols');\n");
-
-    fprintf(fid,"subplot(3,2,[4 6]);\n");
-    fprintf(fid,"plot(real(payload_sym),imag(payload_sym),'+');\n");
-    fprintf(fid,"xlabel('in-phase');\n");
-    fprintf(fid,"ylabel('quadrature phase');\n");
-    fprintf(fid,"grid on;\n");
-    fprintf(fid,"axis([-1 1 -1 1]*1.5);\n");
-    fprintf(fid,"axis square;\n");
-    fprintf(fid,"title('Received Payload Symbols');\n");
-
-    fprintf(fid,"\n\n");
     fclose(fid);
-
-    printf("sc_flexframesync/debug: results written to %s\n", _filename);
-#else
-    return sc_error(LIQUID_EICONFIG,"sc_flexframesync_debug_print(): compile-time debugging disabled");
-#endif
+    _q->num_files_exported++;
+    printf("sc_flexframesync_debug_export(), results written to %s (%u total)\n",
+        _q->filename, _q->num_files_exported);
     return LIQUID_OK;
 }
-

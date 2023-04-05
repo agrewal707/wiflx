@@ -58,10 +58,10 @@ int sc_flexframesync_execute(sc_flexframesync          _q,
 int              sc_flexframesync_reset_framedatastats(sc_flexframesync _q);
 framedatastats_s sc_flexframesync_get_framedatastats  (sc_flexframesync _q);
 
-// enable/disable debugging
-int sc_flexframesync_debug_enable(sc_flexframesync _q);
-int sc_flexframesync_debug_disable(sc_flexframesync _q);
-int sc_flexframesync_debug_print(sc_flexframesync _q,
-                               const char *  _filename);
+// set prefix for exporting debugging files, default: "sc_framesync"
+//  _q      : frame sync object
+//  _prefix : string with valid file path
+int sc_flexframesync_set_prefix(sc_flexframesync  _q,
+                           const char * _prefix);
 
 #endif // WIFLX_SCRATCH_SC_FLEXFRAMESYNC_H

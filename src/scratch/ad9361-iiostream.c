@@ -772,7 +772,7 @@ int main (int C, char **V)
 
     if (cfg.rxen) {
      ffs = sc_flexframesync_create (rx_callback, NULL);
-     //sc_framesync_set_prefix(fs, cfg.debug_prefix);
+     sc_flexframesync_set_prefix(ffs, cfg.debug_prefix);
      sc_flexframesync_print (ffs);
 
     }
@@ -805,8 +805,6 @@ int main (int C, char **V)
     for (int i = 0; i < tx_buf_size; ++i)
       buf_tx[i] += nstd*(randnf() + _Complex_I*randnf())*M_SQRT1_2;
   }
-
-  //set_thread_param (pthread_self(), "PHY", SCHED_FIFO, 1, 0);
  
   debug_tx = windowcf_create (DEBUG_BUFFER_LEN);
   debug_rx = windowcf_create (DEBUG_BUFFER_LEN);
@@ -843,6 +841,8 @@ int main (int C, char **V)
 
   pthread_t monitor;
   pthread_create (&monitor, NULL, plutosdr_monitor, &cfg);
+
+  set_thread_param (pthread_self(), "PHY", SCHED_FIFO, 1, 0);
 
   size_t rx_i = 0;
   printf("* Starting IO streaming (press CTRL+C to cancel)\n");
@@ -882,7 +882,7 @@ int main (int C, char **V)
             else
               sc_flexframesync_execute (ffs, &y, 1);
 
-            windowcf_write (debug_rx, x, cfg.M);
+            //windowcf_write (debug_rx, x, cfg.M);
             rx_i = 0;
           }
         } else {
@@ -891,7 +891,7 @@ int main (int C, char **V)
           else
             sc_flexframesync_execute (ffs, x, 1);
 
-          windowcf_write (debug_rx, x, 1);
+          //windowcf_write (debug_rx, x, 1);
           rx_i = 0;
         }
       }
@@ -942,7 +942,7 @@ else if (cfg.cw) {
         nbytes_tx = iio_buffer_push(txbuf);
         //printf("tx_i: %lu, nbytes_tx: %ld, samples: %ld\n", tx_i, nbytes_tx, nbytes_tx/iio_device_get_sample_size(tx));
         if (nbytes_tx < 0) { printf("Error pushing buf %d\n", (int) nbytes_tx); shutdown(); }
-        windowcf_write (debug_tx, buf_tx + tx_i, samples_to_write);
+        //windowcf_write (debug_tx, buf_tx + tx_i, samples_to_write);
         tx_i += samples_to_write;
       }
     } // tx_en
@@ -953,7 +953,7 @@ else if (cfg.cw) {
     //printf("\tRX %8.2f MSmp, TX %8.2f MSmp\n", nrx/1e6, ntx/1e6);
   }
 
-  dump_debug_data ("/tmp/pluto_radio_samples.m", txcfg.fs_hz);
+  //dump_debug_data ("/tmp/pluto_radio_samples.m", txcfg.fs_hz);
  
   shutdown();
 

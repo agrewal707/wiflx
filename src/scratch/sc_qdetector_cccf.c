@@ -34,19 +34,31 @@
 #include "sc_common.h"
 #include "sc_qdetector_cccf.h"
 
-#include <fftw3.h>
-#define FFT_PLAN             fftwf_plan
-#define FFT_CREATE_PLAN      fftwf_plan_dft_1d
-#define FFT_DESTROY_PLAN     fftwf_destroy_plan
-#define FFT_EXECUTE          fftwf_execute
-#define FFT_DIR_FORWARD      FFTW_FORWARD
-#define FFT_DIR_BACKWARD     FFTW_BACKWARD
-#define FFT_METHOD           FFTW_ESTIMATE
-#define FFT_MALLOC           fftwf_malloc
-#define FFT_FREE             fftwf_free
+#if 1
+#   include <fftw3.h>
+#   define FFT_PLAN             fftwf_plan
+#   define FFT_CREATE_PLAN      fftwf_plan_dft_1d
+#   define FFT_DESTROY_PLAN     fftwf_destroy_plan
+#   define FFT_EXECUTE          fftwf_execute
+#   define FFT_DIR_FORWARD      FFTW_FORWARD
+#   define FFT_DIR_BACKWARD     FFTW_BACKWARD
+#   define FFT_METHOD           FFTW_ESTIMATE
+#   define FFT_MALLOC           fftwf_malloc
+#   define FFT_FREE             fftwf_free
+#else
+#   define FFT_PLAN             fftplan
+#   define FFT_CREATE_PLAN      fft_create_plan
+#   define FFT_DESTROY_PLAN     fft_destroy_plan
+#   define FFT_EXECUTE          fft_execute
+#   define FFT_DIR_FORWARD      LIQUID_FFT_FORWARD
+#   define FFT_DIR_BACKWARD     LIQUID_FFT_BACKWARD
+#   define FFT_METHOD           0
+#   define FFT_MALLOC           malloc
+#   define FFT_FREE             free
+#endif
 
 #define DEBUG_QDETECTOR              0
-#define DEBUG_QDETECTOR_PRINT        0
+#define DEBUG_QDETECTOR_PRINT        1
 #define DEBUG_QDETECTOR_FILENAME     "sc_qdetector_cccf_debug.m"
 
 // seek signal (initial detection)
@@ -152,7 +164,7 @@ sc_qdetector_cccf sc_qdetector_cccf_create(float complex * _s,
     q->phi_hat   = 0.0f;
 
     sc_qdetector_cccf_set_threshold(q,0.5f);
-    sc_qdetector_cccf_set_range    (q,0.3f); // set initial range for higher detection
+    sc_qdetector_cccf_set_range    (q,0.1f); // set initial range for higher detection
 
     // return object
     return q;
@@ -496,7 +508,10 @@ int sc_qdetector_cccf_execute_seek(sc_qdetector_cccf _q,
     } else {
         g0 = sqrtf(_q->x2_sum_0 + _q->x2_sum_1) * sqrtf((float)(_q->s_len) / (float)(_q->nfft));
     }
-    if (g0 < 1e-10) {
+    //printf("G0: %12.8f\n", g0);
+
+    //if (g0 < 1e-10) {
+    if (g0 < 2.0) {
         memmove(_q->buf_time_0,
                 _q->buf_time_0 + _q->nfft / 2,
                 (_q->nfft / 2) * sizeof(liquid_float_complex));
