@@ -102,7 +102,7 @@ ExternalProject_Add(tracy
   PREFIX tracy
 
   GIT_REPOSITORY "https://github.com/wolfpld/tracy.git"
-  GIT_TAG "0b03d7b2addab19fadbb0d09af25bc51f4b79a5c"
+  GIT_TAG "v0.9.1"
 
   UPDATE_COMMAND ""
   PATCH_COMMAND ""
@@ -235,7 +235,7 @@ ExternalProject_Add(liquid-dsp
   PREFIX liquid-dsp
 
   GIT_REPOSITORY "https://github.com/agrewal707/liquid-dsp.git"
-  GIT_TAG "hamnet-liquid-dsp-1.5.0"
+  GIT_TAG "fix_ofdm_equalizer_gain_correction"
 
   BUILD_IN_SOURCE 1
   BUILD_ALWAYS 1

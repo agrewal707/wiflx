@@ -14,11 +14,15 @@ index 12d4b7cd..6054fbb8 100644
      *)
          # unknown architecture : use portable C version
 diff --git a/makefile.in b/makefile.in
-index 954b0006..08c0eb61 100644
+index 90decdbb..60000732 100644
 --- a/makefile.in
 +++ b/makefile.in
-@@ -1290,6 +1290,7 @@ install: all
- 	install -m 644 -p libliquid.${AR_LIB} $(DESTDIR)$(libdir)/libliquid.${AR_LIB}.${VERSION}
+@@ -1294,9 +1294,10 @@ install: all
+ 	@echo ""
+ 	mkdir -p $(DESTDIR)$(prefix)/include/liquid
+ 	mkdir -p $(DESTDIR)$(libdir)
+-	install -m 644 -p libliquid.${AR_LIB} $(DESTDIR)$(libdir)/libliquid.${AR_LIB}
++	install -m 644 -p libliquid.${AR_LIB} $(DESTDIR)$(libdir)/libliquid.${AR_LIB}.${VERSION}
  	install -m 644 -p libliquid.${SH_LIB} $(DESTDIR)$(libdir)/libliquid.${SH_LIB}.${VERSION}
  	install -m 644 -p include/liquid.h $(DESTDIR)$(prefix)/include/liquid/liquid.h
 +	ln -sf libliquid.${AR_LIB}.${VERSION} $(DESTDIR)$(libdir)/libliquid.${AR_LIB}
